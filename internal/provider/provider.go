@@ -5,7 +5,9 @@ package provider
 
 import (
 	"context"
-	"net/http"
+	"encoding/json"
+	"fmt"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
@@ -13,43 +15,67 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"golang.org/x/oauth2/jwt"
+	"google.golang.org/api/sheets/v4"
 )
 
 // Ensure ScaffoldingProvider satisfies various provider interfaces.
-var _ provider.Provider = &ScaffoldingProvider{}
-var _ provider.ProviderWithFunctions = &ScaffoldingProvider{}
+var _ provider.Provider = &GoogleSheetsProvider{}
+var _ provider.ProviderWithFunctions = &GoogleSheetsProvider{}
 
-// ScaffoldingProvider defines the provider implementation.
-type ScaffoldingProvider struct {
+// GoogleSheetsProvider defines the provider implementation.
+type GoogleSheetsProvider struct {
 	// version is set to the provider version on release, "dev" when the
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
 }
 
-// ScaffoldingProviderModel describes the provider data model.
-type ScaffoldingProviderModel struct {
-	Endpoint types.String `tfsdk:"endpoint"`
+// GoogleSheetsProviderModel describes the provider data model.
+type GoogleSheetsProviderModel struct {
+	ServiceAccountKey types.String `tfsdk:"service_account_key"`
 }
 
-func (p *ScaffoldingProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "scaffolding"
+// rowProviderModel maps provider schema data to a Go type.
+type rowsProviderModel struct {
+	// Rows types.List `tfsdk:"rows"`
+	Rows types.String `tfsdk:"rows"`
+}
+
+func (p *GoogleSheetsProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "gsheets"
 	resp.Version = p.version
 }
 
-func (p *ScaffoldingProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *GoogleSheetsProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Example provider attribute",
-				Optional:            true,
+			"service_account_key": schema.StringAttribute{
+				MarkdownDescription: "The Google Sheet ID",
+				Required:            true,
 			},
 		},
 	}
 }
 
-func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data ScaffoldingProviderModel
+type CredentialsFile struct {
+	Email string `json:"email"`
+	// Type                    string   `json:"type"`
+	// ProjectID               string   `json:"project_id"`
+	PrivateKeyID string `json:"private_key_id"`
+	PrivateKey   string `json:"private_key"`
+	// ClientEmail             string   `json:"client_email"`
+	// ClientID                string   `json:"client_id"`
+	// AuthURL                 string   `json:"auth_url"`
+	TokenURL string `json:"token_url"`
+	// AuthProviderX509CERTURL string   `json:"auth_provider_x509_cert_url"`
+	// ClientX509CERTURL       string   `json:"client_x509_cert_url"`
+	Scopes []string `json:"scopes"`
+}
+
+func (p *GoogleSheetsProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var data GoogleSheetsProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
@@ -57,36 +83,75 @@ func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.Config
 		return
 	}
 
+	f, err := os.Open(data.ServiceAccountKey.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to open service account file in ",
+			err.Error(),
+		)
+		return
+	}
+	defer f.Close()
+	credentials := &CredentialsFile{}
+
+	// Create a JWT configurations object for the Google service account
+	err = json.NewDecoder(f).Decode(credentials)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to create service for google sheets",
+			err.Error(),
+		)
+		return
+	}
+
+	conf := &jwt.Config{
+		Email:        credentials.Email,
+		PrivateKey:   []byte(credentials.PrivateKey),
+		PrivateKeyID: credentials.PrivateKeyID,
+		TokenURL:     credentials.TokenURL,
+		Scopes:       credentials.Scopes,
+	}
+
+	tflog.Info(ctx, fmt.Sprint(conf))
+
+	client := conf.Client(ctx)
+
+	// http.DefaultTransport.(*http.Transport).DisableCompression = true
+	// return sheets.NewService(ctx, option.WithHTTPClient(client))
+	gclient, err := sheets.New(client)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to create service for google sheets",
+			err.Error(),
+		)
+		return
+	}
+
 	// Configuration values are now available.
 	// if data.Endpoint.IsNull() { /* ... */ }
 
 	// Example client configuration for data sources and resources
-	client := http.DefaultClient
-	resp.DataSourceData = client
-	resp.ResourceData = client
+	resp.DataSourceData = gclient
+	resp.ResourceData = gclient
 }
 
-func (p *ScaffoldingProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewExampleResource,
-	}
+func (p *GoogleSheetsProvider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{}
 }
 
-func (p *ScaffoldingProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+func (p *GoogleSheetsProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewExampleDataSource,
+		NewRowsDataSource,
 	}
 }
 
-func (p *ScaffoldingProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{
-		NewExampleFunction,
-	}
+func (p *GoogleSheetsProvider) Functions(ctx context.Context) []func() function.Function {
+	return []func() function.Function{}
 }
 
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &ScaffoldingProvider{
+		return &GoogleSheetsProvider{
 			version: version,
 		}
 	}

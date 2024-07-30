@@ -108,7 +108,7 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	if values.HTTPStatusCode != 200 {
 		resp.Diagnostics.AddError(
 			"Unexpected status code",
-			fmt.Sprintf("Received status %s", values.HTTPStatusCode),
+			fmt.Sprintf("Received status %d", values.HTTPStatusCode),
 		)
 		return
 	}

@@ -32,7 +32,6 @@ type RowsDataSourceModel struct {
 	Range   types.String `tfsdk:"range"`
 
 	Rows types.List   `tfsdk:"rows"`
-	Raw  types.String `tfsdk:"raw"`
 }
 
 func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -57,10 +56,6 @@ func (d *RowsDataSource) Schema(ctx context.Context, req datasource.SchemaReques
 					ElemType: types.StringType,
 				},
 				MarkdownDescription: "The rows",
-				Computed:            true,
-			},
-			"raw": schema.StringAttribute{
-				MarkdownDescription: "the raw data",
 				Computed:            true,
 			},
 		},
@@ -112,8 +107,6 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		)
 		return
 	}
-
-	data.Raw = types.StringValue(fmt.Sprint(values.Values))
 
 	tfAttr := []attr.Value{}
 

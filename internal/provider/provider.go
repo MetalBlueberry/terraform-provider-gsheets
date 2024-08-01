@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2/jwt"
+	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -35,12 +36,7 @@ type GoogleSheetsProvider struct {
 // GoogleSheetsProviderModel describes the provider data model.
 type GoogleSheetsProviderModel struct {
 	ServiceAccountKey types.String `tfsdk:"service_account_key"`
-}
-
-// rowProviderModel maps provider schema data to a Go type.
-type rowsProviderModel struct {
-	// Rows types.List `tfsdk:"rows"`
-	Rows types.String `tfsdk:"rows"`
+	Endpoint          types.String `tfsdk:"endpoint"`
 }
 
 func (p *GoogleSheetsProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -53,7 +49,11 @@ func (p *GoogleSheetsProvider) Schema(ctx context.Context, req provider.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"service_account_key": schema.StringAttribute{
 				MarkdownDescription: "The Google Sheet ID",
-				Required:            true,
+				Optional:            true,
+			},
+			"endpoint": schema.StringAttribute{
+				MarkdownDescription: "The Google Sheet Endpoint, replace this to run tests with a mock server",
+				Optional:            true,
 			},
 		},
 	}
@@ -83,42 +83,56 @@ func (p *GoogleSheetsProvider) Configure(ctx context.Context, req provider.Confi
 		return
 	}
 
-	f, err := os.Open(data.ServiceAccountKey.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to open service account file in ",
-			err.Error(),
-		)
-		return
+	opt := []option.ClientOption{}
+
+	if !data.ServiceAccountKey.IsNull() {
+		credentials := &CredentialsFile{}
+
+		err := json.Unmarshal([]byte(data.ServiceAccountKey.ValueString()), credentials)
+		if err != nil {
+			f, err := os.Open(data.ServiceAccountKey.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Unable to open service account file in ",
+					err.Error(),
+				)
+				return
+			}
+			defer f.Close()
+
+			// Create a JWT configurations object for the Google service account
+			err = json.NewDecoder(f).Decode(credentials)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Unable to create service for google sheets",
+					err.Error(),
+				)
+				return
+			}
+		}
+
+		conf := &jwt.Config{
+			Email:        credentials.Email,
+			PrivateKey:   []byte(credentials.PrivateKey),
+			PrivateKeyID: credentials.PrivateKeyID,
+			TokenURL:     credentials.TokenURL,
+			Scopes:       credentials.Scopes,
+		}
+
+		tflog.Info(ctx, fmt.Sprint(conf))
+
+		client := conf.Client(ctx)
+		opt = append(opt, option.WithHTTPClient(client))
+	} else {
+		opt = append(opt, option.WithoutAuthentication())
+
 	}
-	defer f.Close()
-	credentials := &CredentialsFile{}
 
-	// Create a JWT configurations object for the Google service account
-	err = json.NewDecoder(f).Decode(credentials)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Unable to create service for google sheets",
-			err.Error(),
-		)
-		return
+	if !data.Endpoint.IsNull() {
+		opt = append(opt, option.WithEndpoint(data.Endpoint.ValueString()))
 	}
 
-	conf := &jwt.Config{
-		Email:        credentials.Email,
-		PrivateKey:   []byte(credentials.PrivateKey),
-		PrivateKeyID: credentials.PrivateKeyID,
-		TokenURL:     credentials.TokenURL,
-		Scopes:       credentials.Scopes,
-	}
-
-	tflog.Info(ctx, fmt.Sprint(conf))
-
-	client := conf.Client(ctx)
-
-	// http.DefaultTransport.(*http.Transport).DisableCompression = true
-	// return sheets.NewService(ctx, option.WithHTTPClient(client))
-	gclient, err := sheets.New(client)
+	gclient, err := sheets.NewService(ctx, opt...)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to create service for google sheets",

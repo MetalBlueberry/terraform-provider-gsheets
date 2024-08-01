@@ -6,6 +6,7 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -45,7 +46,12 @@ data "gsheets_rows" "test" {
 					Range:          r.PathValue("range"),
 					MajorDimension: "ROWS",
 				}
-				json.NewEncoder(w).Encode(res)
+				err := json.NewEncoder(w).Encode(res)
+				if err != nil {
+					log.Println(err)
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
 				w.WriteHeader(200)
 			})
 		},

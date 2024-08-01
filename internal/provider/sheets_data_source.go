@@ -30,8 +30,7 @@ type RowsDataSource struct {
 type RowsDataSourceModel struct {
 	SheetID types.String `tfsdk:"sheet_id"`
 	Range   types.String `tfsdk:"range"`
-
-	Rows types.List   `tfsdk:"rows"`
+	Rows    types.List   `tfsdk:"rows"`
 }
 
 func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -113,7 +112,8 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	for _, row := range values.Values {
 		tfRow := []attr.Value{}
 		for _, el := range row {
-			tfRow = append(tfRow, types.StringValue(el.(string)))
+			v, _ := el.(string)
+			tfRow = append(tfRow, types.StringValue(v))
 		}
 		tfList := types.ListValueMust(types.StringType, tfRow)
 		tfAttr = append(tfAttr, tfList)

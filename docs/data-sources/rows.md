@@ -22,5 +22,4 @@ Rows data source
 
 ### Read-Only
 
-- `raw` (String) the raw data
 - `rows` (List of List of String) The rows

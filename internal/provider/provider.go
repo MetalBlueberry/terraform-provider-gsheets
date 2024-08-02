@@ -152,6 +152,7 @@ func (p *GoogleSheetsProvider) Configure(ctx context.Context, req provider.Confi
 func (p *GoogleSheetsProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewSheetResource,
+		NewRangeResource,
 	}
 }
 

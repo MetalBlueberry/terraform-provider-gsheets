@@ -23,19 +23,14 @@ type SheetResource struct {
 }
 
 type SpreadsheetPropertiesModel struct {
-	Title types.String `tfsdk:"title"`
-}
-
-type SpreadsheetModel struct {
-	Properties *SpreadsheetPropertiesModel `tfsdk:"properties"`
+	Title   types.String `tfsdk:"title"`
+	SheetID types.Int64  `tfsdk:"sheet_id"`
+	Index   types.Int64  `tfsdk:"index"`
 }
 
 type SheetsResourceModel struct {
-	SheetID     types.String      `tfsdk:"sheet_id"`
-	Spreadsheet *SpreadsheetModel `tfsdk:"spreadsheet"`
-	Range       types.String      `tfsdk:"range"`
-
-	Rows types.List `tfsdk:"rows"`
+	SpreadsheetID types.String                `tfsdk:"spreadsheet_id"`
+	Properties    *SpreadsheetPropertiesModel `tfsdk:"properties"`
 }
 
 func (r *SheetResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -47,35 +42,24 @@ func (r *SheetResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 		MarkdownDescription: "Sheets resource",
 
 		Attributes: map[string]schema.Attribute{
-			"sheet_id": schema.StringAttribute{
+			"spreadsheet_id": schema.StringAttribute{
 				MarkdownDescription: "The file to get the rows from",
-				Computed:            true,
-			},
-			"spreadsheet": schema.SingleNestedAttribute{
 				Required:            true,
-				MarkdownDescription: "The spreadsheet properties",
+			},
+			"properties": schema.SingleNestedAttribute{
+				Required: true,
 				Attributes: map[string]schema.Attribute{
-					"properties": schema.SingleNestedAttribute{
-						Required: true,
-						Attributes: map[string]schema.Attribute{
-							"title": schema.StringAttribute{
-								MarkdownDescription: "The title of the spreadsheet",
-								Required:            true,
-							},
-						},
+					"title": schema.StringAttribute{
+						MarkdownDescription: "The title of the spreadsheet",
+						Required:            true,
+					},
+					"sheet_id": schema.Int64Attribute{
+						Computed: true,
+					},
+					"index": schema.Int64Attribute{
+						Computed: true,
 					},
 				},
-			},
-			"range": schema.StringAttribute{
-				MarkdownDescription: "The range to read",
-				Required:            true,
-			},
-			"rows": schema.ListAttribute{
-				ElementType: types.ListType{
-					ElemType: types.StringType,
-				},
-				MarkdownDescription: "The rows",
-				Optional:            true,
 			},
 		},
 	}
@@ -115,9 +99,14 @@ func (r *SheetResource) Create(ctx context.Context, req resource.CreateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	createRequest := r.client.Spreadsheets.Create(&sheets.Spreadsheet{
-		Properties: &sheets.SpreadsheetProperties{
-			Title: data.Spreadsheet.Properties.Title.ValueString(),
+
+	createRequest := r.client.Spreadsheets.BatchUpdate(data.SpreadsheetID.ValueString(), &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{AddSheet: &sheets.AddSheetRequest{
+				Properties: &sheets.SheetProperties{
+					Title: data.Properties.Title.ValueString(),
+				},
+			}},
 		},
 	})
 	createResponse, err := createRequest.Do()
@@ -126,16 +115,9 @@ func (r *SheetResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	data.SheetID = basetypes.NewStringValue(createResponse.SpreadsheetId)
-	data.Spreadsheet = &SpreadsheetModel{
-		Properties: &SpreadsheetPropertiesModel{
-			Title: basetypes.NewStringValue(createResponse.Properties.Title),
-		},
-	}
-
-	// data.Rows = basetypes.NewListValueMust(types.ListType{
-	// 	ElemType: types.StringType,
-	// }, []attr.Value{})
+	data.SpreadsheetID = basetypes.NewStringValue(createResponse.SpreadsheetId)
+	data.Properties.Index = basetypes.NewInt64Value(createResponse.Replies[0].AddSheet.Properties.Index)
+	data.Properties.SheetID = basetypes.NewInt64Value(createResponse.Replies[0].AddSheet.Properties.SheetId)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -180,28 +162,25 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	values := [][]interface{}{}
-	for _, el := range planData.Rows.Elements() {
-		row := []interface{}{}
-		for _, ell := range el.(basetypes.ListValue).Elements() {
-			row = append(row, ell)
-		}
-		values = append(values, row)
-	}
-
-	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SheetID.ValueString(), stateData.Range.ValueString(), &sheets.ValueRange{
-		Range:  planData.Range.ValueString(),
-		Values: [][]interface{}{},
+	updateRequest := r.client.Spreadsheets.BatchUpdate(stateData.SpreadsheetID.ValueString(), &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			&sheets.Request{
+				UpdateSheetProperties: &sheets.UpdateSheetPropertiesRequest{
+					Properties: &sheets.SheetProperties{
+						Title: planData.Properties.Title.ValueString(),
+					},
+				},
+			},
+		},
 	})
-
 	updateResponse, err := updateRequest.Do()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to perform update request", err.Error())
 		return
 	}
 
-	stateData.SheetID = basetypes.NewStringValue(updateResponse.SpreadsheetId)
-	stateData.Rows = planData.Rows
+	stateData.SpreadsheetID = basetypes.NewStringValue(updateResponse.SpreadsheetId)
+	stateData.Properties.Title = basetypes.NewStringValue(updateResponse.Replies[0].AddSheet.Properties.Title)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }

@@ -150,7 +150,9 @@ func (p *GoogleSheetsProvider) Configure(ctx context.Context, req provider.Confi
 }
 
 func (p *GoogleSheetsProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{}
+	return []func() resource.Resource{
+		NewSheetResource,
+	}
 }
 
 func (p *GoogleSheetsProvider) DataSources(ctx context.Context) []func() datasource.DataSource {

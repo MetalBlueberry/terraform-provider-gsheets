@@ -164,7 +164,7 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	updateRequest := r.client.Spreadsheets.BatchUpdate(stateData.SpreadsheetID.ValueString(), &sheets.BatchUpdateSpreadsheetRequest{
 		Requests: []*sheets.Request{
-			&sheets.Request{
+			{
 				UpdateSheetProperties: &sheets.UpdateSheetPropertiesRequest{
 					Properties: &sheets.SheetProperties{
 						Title: planData.Properties.Title.ValueString(),

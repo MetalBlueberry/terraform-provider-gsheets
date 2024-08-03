@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"google.golang.org/api/sheets/v4"
@@ -23,9 +26,10 @@ type RangeResource struct {
 }
 
 type RangeResourceModel struct {
-	SpreadsheetID types.String `tfsdk:"spreadsheet_id"`
-	Range         types.String `tfsdk:"range"`
-	Rows          types.List   `tfsdk:"rows"`
+	SpreadsheetID    types.String `tfsdk:"spreadsheet_id"`
+	Range            types.String `tfsdk:"range"`
+	ValueInputOption types.String `tfsdk:"value_input_option"`
+	Rows             types.List   `tfsdk:"rows"`
 }
 
 func (m RangeResourceModel) RowsToValues() [][]interface{} {
@@ -33,7 +37,7 @@ func (m RangeResourceModel) RowsToValues() [][]interface{} {
 	for _, el := range m.Rows.Elements() {
 		row := []interface{}{}
 		for _, ell := range el.(basetypes.ListValue).Elements() {
-			row = append(row, ell)
+			row = append(row, ell.(types.String).ValueString())
 		}
 		values = append(values, row)
 	}
@@ -56,6 +60,15 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"range": schema.StringAttribute{
 				MarkdownDescription: "The range to read",
 				Required:            true,
+			},
+			"value_input_option": schema.StringAttribute{
+				MarkdownDescription: "how to post data",
+				Computed:            true,
+				Optional:            true,
+				Default:             stringdefault.StaticString("USER_ENTERED"),
+				Validators: []validator.String{
+					stringvalidator.OneOf("RAW", "USER_ENTERED"),
+				},
 			},
 			"rows": schema.ListAttribute{
 				ElementType: types.ListType{
@@ -107,6 +120,7 @@ func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, 
 		Range:  data.Range.ValueString(),
 		Values: data.RowsToValues(),
 	})
+	updateRequest.ValueInputOption(data.ValueInputOption.ValueString())
 	_, err := updateRequest.Do()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to perform update", err.Error())
@@ -161,6 +175,8 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		Values: planData.RowsToValues(),
 	})
 
+	updateRequest.ValueInputOption(planData.ValueInputOption.ValueString())
+
 	updateResponse, err := updateRequest.Do()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to perform update request", err.Error())
@@ -169,6 +185,7 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	stateData.SpreadsheetID = basetypes.NewStringValue(updateResponse.SpreadsheetId)
 	stateData.Rows = planData.Rows
+	stateData.ValueInputOption = planData.ValueInputOption
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
 }

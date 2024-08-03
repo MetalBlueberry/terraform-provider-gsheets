@@ -146,6 +146,7 @@ resource "gsheets_sheet" "test" {
 		title = "test title"
 	}
 }
+
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"

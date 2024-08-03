@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -44,6 +45,12 @@ func (m RangeResourceModel) RowsToValues() [][]interface{} {
 		}
 		values = append(values, row)
 	}
+	return values
+}
+
+// I need to write unit test for the reason why I have this :harold:
+func (m RangeResourceModel) RowsToValuesClean() [][]interface{} {
+	values := m.RowsToValues()
 	for i := range values {
 		values[i] = removeTrailingEmptyStrings(values[i])
 	}
@@ -81,37 +88,39 @@ func removeEmptyRows(values [][]interface{}) [][]interface{} {
 	return values
 }
 
-func (m RangeResourceModel) ReplaceValues(originalValues [][]interface{}) [][]interface{} {
-	// clear original
+func KeepDimensions(reference [][]interface{}, data [][]interface{}) [][]interface{} {
 	result := [][]interface{}{}
 
-	for i := range originalValues {
+	for i := range reference {
 		result = append(result, []interface{}{})
-		for range originalValues[i] {
+		for range reference[i] {
 			result[i] = append(result[i], "")
 		}
 	}
 
-	newValues := m.RowsToValues()
-
-	for i := range newValues {
+	for i := range data {
 		// if it is a new row
-		if len(result) >= i {
+		if len(result) == i {
 			//append it
 			result = append(result, []interface{}{})
 		}
-		for j := range newValues[i] {
+		for j := range data[i] {
 			// if original contains the position
 			if len(result) > i && len(result[i]) > j {
 				//replace
-				result[i][j] = newValues[i][j]
+				result[i][j] = data[i][j]
 			} else {
 				// append
-				result[i] = append(result[i], newValues[i][j])
+				result[i] = append(result[i], data[i][j])
 			}
 		}
 	}
 	return result
+}
+
+func (m RangeResourceModel) KeepDimensions(reference [][]interface{}) [][]interface{} {
+	newValues := m.RowsToValues()
+	return KeepDimensions(reference, newValues)
 }
 
 func (r *RangeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -193,6 +202,7 @@ func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, 
 		Range:  data.Range.ValueString(),
 		Values: data.RowsToValues(),
 	})
+
 	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(data.ValueInputOption.ValueString())
 	_, err := updateRequest.Do()
@@ -252,7 +262,12 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	data.Rows = ValuesToList(getResponse.Values)
+	tflog.Info(ctx, fmt.Sprintf("Got %#v values when reading", getResponse.Values))
+	rowValues := data.RowsToValues()
+	tflog.Info(ctx, fmt.Sprintf("Got %#v data rows", rowValues))
+	extended := KeepDimensions(rowValues, getResponse.Values)
+	tflog.Info(ctx, fmt.Sprintf("Got %#v after extension", extended))
+	data.Rows = ValuesToList(extended)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -279,7 +294,7 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SpreadsheetID.ValueString(), stateData.Range.ValueString(), &sheets.ValueRange{
 		Range:  planData.Range.ValueString(),
-		Values: planData.ReplaceValues(stateData.RowsToValues()),
+		Values: planData.KeepDimensions(stateData.RowsToValues()),
 	})
 	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(planData.ValueInputOption.ValueString())

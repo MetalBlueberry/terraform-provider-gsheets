@@ -127,7 +127,6 @@ func ValuesToList(values [][]interface{}) basetypes.ListValue {
 				if !ok {
 					tfRow = append(tfRow, types.StringValue(""))
 				} else {
-					// tfRow = append(tfRow, types.StringValue(""))
 					tfRow = append(tfRow, types.StringValue(v))
 				}
 			}

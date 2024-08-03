@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -276,4 +277,71 @@ func equal2D(a, b [][]interface{}) bool {
 		}
 	}
 	return true
+}
+
+func TestKeepDimensions(t *testing.T) {
+	tests := []struct {
+		name      string
+		reference [][]interface{}
+		data      [][]interface{}
+		expected  [][]interface{}
+	}{
+		{
+			name:      "Basic Functionality",
+			reference: [][]interface{}{{"", ""}, {"", ""}},
+			data:      [][]interface{}{{1, 2}, {3, 4}},
+			expected:  [][]interface{}{{1, 2}, {3, 4}},
+		},
+		{
+			name:      "Different Dimensions - More Data Rows",
+			reference: [][]interface{}{{"", ""}, {"", ""}},
+			data:      [][]interface{}{{1, 2}, {3, 4}, {5, 6}},
+			expected:  [][]interface{}{{1, 2}, {3, 4}, {5, 6}},
+		},
+		{
+			name:      "Different Dimensions - More Data Columns",
+			reference: [][]interface{}{{"", ""}, {"", ""}},
+			data:      [][]interface{}{{1, 2, 3}, {4, 5, 6}},
+			expected:  [][]interface{}{{1, 2, 3}, {4, 5, 6}},
+		},
+		{
+			name:      "Empty Reference",
+			reference: [][]interface{}{},
+			data:      [][]interface{}{{1, 2}, {3, 4}},
+			expected:  [][]interface{}{{1, 2}, {3, 4}},
+		},
+		{
+			name:      "Empty Data",
+			reference: [][]interface{}{{"", ""}, {"", ""}},
+			data:      [][]interface{}{},
+			expected:  [][]interface{}{{"", ""}, {"", ""}},
+		},
+		{
+			name:      "Non-Uniform Dimensions",
+			reference: [][]interface{}{{""}, {"", ""}, {"", "", ""}},
+			data:      [][]interface{}{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
+			expected:  [][]interface{}{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}},
+		},
+		{
+			name:      "Longer reference rows",
+			reference: [][]interface{}{{"", "", ""}, {"", "", ""}},
+			data:      [][]interface{}{{1, 2}, {3, 4}},
+			expected:  [][]interface{}{{1, 2, ""}, {3, 4, ""}},
+		},
+		{
+			name:      "more reference rows",
+			reference: [][]interface{}{{"", "", ""}, {"", "", ""}, {"", "", ""}},
+			data:      [][]interface{}{{1, 2}, {3, 4}},
+			expected:  [][]interface{}{{1, 2, ""}, {3, 4, ""}, {"", "", ""}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := KeepDimensions(tt.reference, tt.data)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("got %v, want %v", result, tt.expected)
+			}
+		})
+	}
 }

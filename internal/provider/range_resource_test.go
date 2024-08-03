@@ -164,3 +164,116 @@ resource "gsheets_range" "test_range" {
 		},
 	})
 }
+
+func TestRemoveTrailingEmptyStrings(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []interface{}
+		expected []interface{}
+	}{
+		{
+			name:     "No trailing empty strings",
+			input:    []interface{}{"first", "second", "third"},
+			expected: []interface{}{"first", "second", "third"},
+		},
+		{
+			name:     "Trailing empty strings",
+			input:    []interface{}{"first", "second", "", "", "third"},
+			expected: []interface{}{"first", "second", "", "", "third"},
+		},
+		{
+			name:     "All elements are empty",
+			input:    []interface{}{"", "", "", ""},
+			expected: []interface{}{},
+		},
+		{
+			name:     "Mixed elements",
+			input:    []interface{}{"first", "", "second", "", "", "third", ""},
+			expected: []interface{}{"first", "", "second", "", "", "third"},
+		},
+		{
+			name:     "Empty input",
+			input:    []interface{}{},
+			expected: []interface{}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeTrailingEmptyStrings(tt.input)
+			if !equal(result, tt.expected) {
+				t.Errorf("removeTrailingEmptyStrings() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// Helper function to check equality of slices
+func equal(a, b []interface{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestRemoveEmptyRows tests the removeEmptyRows function.
+func TestRemoveEmptyRows(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    [][]interface{}
+		expected [][]interface{}
+	}{
+		{
+			name:     "No empty rows",
+			input:    [][]interface{}{{"first"}, {"second"}, {"third"}},
+			expected: [][]interface{}{{"first"}, {"second"}, {"third"}},
+		},
+		{
+			name:     "Trailing empty rows",
+			input:    [][]interface{}{{"first"}, {"second"}, {""}, {""}},
+			expected: [][]interface{}{{"first"}, {"second"}},
+		},
+		{
+			name:     "All rows empty",
+			input:    [][]interface{}{{""}, {""}},
+			expected: [][]interface{}{},
+		},
+		{
+			name:     "Mixed rows",
+			input:    [][]interface{}{{"first"}, {""}, {"second"}, {""}, {""}},
+			expected: [][]interface{}{{"first"}, {""}, {"second"}},
+		},
+		{
+			name:     "Empty input",
+			input:    [][]interface{}{},
+			expected: [][]interface{}{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeEmptyRows(tt.input)
+			if !equal2D(result, tt.expected) {
+				t.Errorf("removeEmptyRows() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+// Helper function to check equality of 2D slices
+func equal2D(a, b [][]interface{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !equal(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}

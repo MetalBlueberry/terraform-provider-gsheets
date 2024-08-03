@@ -3,11 +3,14 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -41,7 +44,74 @@ func (m RangeResourceModel) RowsToValues() [][]interface{} {
 		}
 		values = append(values, row)
 	}
+	for i := range values {
+		values[i] = removeTrailingEmptyStrings(values[i])
+	}
+	values = removeEmptyRows(values)
+
 	return values
+}
+
+func removeTrailingEmptyStrings(slice []interface{}) []interface{} {
+	n := len(slice)
+	for i := n - 1; i >= 0; i-- {
+		if str, ok := slice[i].(string); ok && strings.TrimSpace(str) != "" {
+			return slice[:i+1]
+		}
+	}
+	return nil
+}
+
+func removeEmptyRows(values [][]interface{}) [][]interface{} {
+	n := len(values)
+	for i := n - 1; i >= 0; i-- {
+		isEmpty := true
+		for _, item := range values[i] {
+			if str, ok := item.(string); ok && strings.TrimSpace(str) != "" {
+				isEmpty = false
+				break
+			}
+		}
+		if isEmpty {
+			values = values[:i]
+		} else {
+			break
+		}
+	}
+	return values
+}
+
+func (m RangeResourceModel) ReplaceValues(originalValues [][]interface{}) [][]interface{} {
+	// clear original
+	result := [][]interface{}{}
+
+	for i := range originalValues {
+		result = append(result, []interface{}{})
+		for range originalValues[i] {
+			result[i] = append(result[i], "")
+		}
+	}
+
+	newValues := m.RowsToValues()
+
+	for i := range newValues {
+		// if it is a new row
+		if len(result) >= i {
+			//append it
+			result = append(result, []interface{}{})
+		}
+		for j := range newValues[i] {
+			// if original contains the position
+			if len(result) > i && len(result[i]) > j {
+				//replace
+				result[i][j] = newValues[i][j]
+			} else {
+				// append
+				result[i] = append(result[i], newValues[i][j])
+			}
+		}
+	}
+	return result
 }
 
 func (r *RangeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -60,6 +130,9 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"range": schema.StringAttribute{
 				MarkdownDescription: "The range to read",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"value_input_option": schema.StringAttribute{
 				MarkdownDescription: "how to post data",
@@ -120,6 +193,7 @@ func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, 
 		Range:  data.Range.ValueString(),
 		Values: data.RowsToValues(),
 	})
+	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(data.ValueInputOption.ValueString())
 	_, err := updateRequest.Do()
 	if err != nil {
@@ -131,15 +205,36 @@ func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, 
 }
 
 // ImportState implements resource.ResourceWithImportState.
-func (r *RangeResource) ImportState(context.Context, resource.ImportStateRequest, *resource.ImportStateResponse) {
-	panic("unimplemented")
+func (r *RangeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	var data RangeResourceModel
+
+	parts := strings.SplitN(req.ID, ":", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("ID is not correct", "The ID must be a <spreadsheet_id>:<range>, but it was "+req.ID)
+		return
+	}
+
+	data.SpreadsheetID = basetypes.NewStringValue(parts[0])
+	data.Range = basetypes.NewStringValue(parts[1])
+
+	getRequest := r.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	getRequest.Context(ctx)
+	getResponse, err := getRequest.Do()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read data,", err.Error())
+		return
+	}
+
+	data.Rows = ValuesToList(getResponse.Values)
+	data.ValueInputOption = basetypes.NewStringValue("USER_ENTERED")
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 // Read is called when the provider must read resource values in order
 // to update state. Planned state values should be read from the
 // ReadRequest and new state values set on the ReadResponse.
 func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-
 	var data RangeResourceModel
 
 	// Read Terraform plan data into the model
@@ -148,6 +243,18 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	getRequest := r.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	getRequest.Context(ctx)
+	getResponse, err := getRequest.Do()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read data,", err.Error())
+		return
+	}
+
+	data.Rows = ValuesToList(getResponse.Values)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 // Update is called to update the state of the resource. Config, planned
@@ -172,9 +279,9 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SpreadsheetID.ValueString(), stateData.Range.ValueString(), &sheets.ValueRange{
 		Range:  planData.Range.ValueString(),
-		Values: planData.RowsToValues(),
+		Values: planData.ReplaceValues(stateData.RowsToValues()),
 	})
-
+	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(planData.ValueInputOption.ValueString())
 
 	updateResponse, err := updateRequest.Do()
@@ -197,4 +304,21 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 // call DeleteResponse.State.RemoveResource(), so it can be omitted
 // from provider logic.
 func (r *RangeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data RangeResourceModel
+
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	clearRequest := r.client.Spreadsheets.Values.Clear(data.SpreadsheetID.ValueString(), data.Range.ValueString(), &sheets.ClearValuesRequest{})
+	clearRequest.Context(ctx)
+	_, err := clearRequest.Do()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read data,", err.Error())
+		return
+	}
+
 }

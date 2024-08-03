@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -107,20 +108,33 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
+	data.Rows = ValuesToList(values.Values)
+
+	// Save data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+}
+
+func ValuesToList(values [][]interface{}) basetypes.ListValue {
 	tfAttr := []attr.Value{}
 
-	for _, row := range values.Values {
+	for _, row := range values {
 		tfRow := []attr.Value{}
 		for _, el := range row {
-			v, _ := el.(string)
-			tfRow = append(tfRow, types.StringValue(v))
+			if el == nil {
+				tfRow = append(tfRow, types.StringValue(""))
+			} else {
+				v, ok := el.(string)
+				if !ok {
+					tfRow = append(tfRow, types.StringValue(""))
+				} else {
+					// tfRow = append(tfRow, types.StringValue(""))
+					tfRow = append(tfRow, types.StringValue(v))
+				}
+			}
 		}
 		tfList := types.ListValueMust(types.StringType, tfRow)
 		tfAttr = append(tfAttr, tfList)
 	}
 
-	data.Rows = types.ListValueMust(types.ListType{ElemType: types.StringType}, tfAttr)
-
-	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	return types.ListValueMust(types.ListType{ElemType: types.StringType}, tfAttr)
 }

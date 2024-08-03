@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -123,8 +124,39 @@ func (r *SheetResource) Create(ctx context.Context, req resource.CreateRequest, 
 }
 
 // ImportState implements resource.ResourceWithImportState.
-func (r *SheetResource) ImportState(context.Context, resource.ImportStateRequest, *resource.ImportStateResponse) {
-	panic("unimplemented")
+func (r *SheetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	var data SheetsResourceModel
+
+	parts := strings.SplitN(req.ID, ":", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("ID is not correct", "The ID must be a <spreadsheet_id>:<title>, but it was "+req.ID)
+		return
+	}
+
+	data.SpreadsheetID = basetypes.NewStringValue(parts[0])
+	data.Properties = &SpreadsheetPropertiesModel{
+		Title: basetypes.NewStringValue(parts[1]),
+	}
+
+	getRequest := r.client.Spreadsheets.Get(data.SpreadsheetID.ValueString())
+	getRequest.Context(ctx)
+	getResponse, err := getRequest.Do()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read data,", err.Error())
+		return
+	}
+	for _, sheet := range getResponse.Sheets {
+		if sheet.Properties.Title != data.Properties.Title.ValueString() {
+			continue
+		}
+		data.Properties.Title = basetypes.NewStringValue(sheet.Properties.Title)
+		data.Properties.SheetID = basetypes.NewInt64Value(sheet.Properties.SheetId)
+		data.Properties.Index = basetypes.NewInt64Value(sheet.Properties.Index)
+		break
+	}
+	// may not be ideal, I need to allow different sheets to be imported
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
 
 // Read is called when the provider must read resource values in order

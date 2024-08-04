@@ -1,5 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
 
 package provider
 
@@ -21,7 +19,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-// Ensure ScaffoldingProvider satisfies various provider interfaces.
+// Ensure Provider satisfies various provider interfaces.
 var _ provider.Provider = &GoogleSheetsProvider{}
 var _ provider.ProviderWithFunctions = &GoogleSheetsProvider{}
 

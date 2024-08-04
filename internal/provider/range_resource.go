@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -160,6 +162,10 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				},
 				MarkdownDescription: "The rows",
 				Optional:            true,
+				Computed:            true,
+				Default: listdefault.StaticValue(basetypes.NewListValueMust(types.ListType{
+					ElemType: types.StringType,
+				}, []attr.Value{})),
 			},
 		},
 	}

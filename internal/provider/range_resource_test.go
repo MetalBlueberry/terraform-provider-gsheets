@@ -95,6 +95,21 @@ func TestAccRangeResource(t *testing.T) {
 						}
 						w.WriteHeader(200)
 					})
+					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := r.PathValue("range")
+
+						res := sheets.ValueRange{
+							Range:  updateRange,
+							Values: [][]interface{}{},
+						}
+						err := json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
 				},
 				Config: fmt.Sprintf(`
 provider "gsheets" {
@@ -120,8 +135,8 @@ resource "gsheets_range" "test_range" {
 			{
 				PreConfig: func() {
 					mux = http.NewServeMux()
+					var storedValues [][]interface{}
 					mux.HandleFunc("PUT /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
-
 						spreadsheetID := r.PathValue("spreadsheetId")
 						updateRange := r.PathValue("range")
 						defer r.Body.Close()
@@ -132,12 +147,53 @@ resource "gsheets_range" "test_range" {
 							return
 						}
 
+						storedValues = requestBody.Values
+
 						res := sheets.UpdateValuesResponse{
 							SpreadsheetId: spreadsheetID,
 							UpdatedData: &sheets.ValueRange{
 								Range:  updateRange,
 								Values: requestBody.Values,
 							},
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := r.PathValue("range")
+
+						res := sheets.ValueRange{
+							Range:  updateRange,
+							Values: storedValues,
+						}
+						err := json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					mux.HandleFunc("POST /v4/spreadsheets/{spreadsheetId}/values/{rangeclear}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := strings.Split(r.PathValue("rangeclear"), ":")[0]
+						spreadsheetID := r.PathValue("spreadsheetId")
+						defer r.Body.Close()
+
+						requestBody := &sheets.ClearValuesRequest{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+
+						res := sheets.ClearValuesResponse{
+							ClearedRange:  updateRange,
+							SpreadsheetId: spreadsheetID,
 						}
 						err = json.NewEncoder(w).Encode(res)
 						if err != nil {

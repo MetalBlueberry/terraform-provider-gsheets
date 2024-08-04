@@ -39,7 +39,11 @@ func TestAccSheetResource(t *testing.T) {
 						spreadsheetID := strings.Split(r.PathValue("spreadsheetIdUpdate"), ":")[0]
 						defer r.Body.Close()
 						requestBody := &sheets.BatchUpdateSpreadsheetRequest{}
-						json.NewDecoder(r.Body).Decode(requestBody)
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
 
 						res := sheets.BatchUpdateSpreadsheetResponse{
 							SpreadsheetId: spreadsheetID,
@@ -55,7 +59,7 @@ func TestAccSheetResource(t *testing.T) {
 								},
 							},
 						}
-						err := json.NewEncoder(w).Encode(res)
+						err = json.NewEncoder(w).Encode(res)
 						if err != nil {
 							log.Println(err)
 							w.WriteHeader(http.StatusInternalServerError)
@@ -90,7 +94,11 @@ resource "gsheets_sheet" "test" {
 						spreadsheetID := strings.Split(r.PathValue("spreadsheetIdUpdate"), ":")[0]
 						defer r.Body.Close()
 						requestBody := &sheets.BatchUpdateSpreadsheetRequest{}
-						json.NewDecoder(r.Body).Decode(requestBody)
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
 
 						res := sheets.BatchUpdateSpreadsheetResponse{
 							SpreadsheetId: spreadsheetID,
@@ -102,7 +110,7 @@ resource "gsheets_sheet" "test" {
 								},
 							},
 						}
-						err := json.NewEncoder(w).Encode(res)
+						err = json.NewEncoder(w).Encode(res)
 						if err != nil {
 							log.Println(err)
 							w.WriteHeader(http.StatusInternalServerError)

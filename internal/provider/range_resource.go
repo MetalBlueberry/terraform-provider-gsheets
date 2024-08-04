@@ -40,15 +40,17 @@ func (m RangeResourceModel) RowsToValues() [][]interface{} {
 	values := [][]interface{}{}
 	for _, el := range m.Rows.Elements() {
 		row := []interface{}{}
-		for _, ell := range el.(basetypes.ListValue).Elements() {
-			row = append(row, ell.(types.String).ValueString())
+		elListValue, _ := el.(basetypes.ListValue)
+		for _, ell := range elListValue.Elements() {
+			ellString, _ := ell.(types.String)
+			row = append(row, ellString.ValueString())
 		}
 		values = append(values, row)
 	}
 	return values
 }
 
-// I need to write unit test for the reason why I have this :harold:
+// I need to write unit test for the reason why I have this :harold:.
 func (m RangeResourceModel) RowsToValuesClean() [][]interface{} {
 	values := m.RowsToValues()
 	for i := range values {

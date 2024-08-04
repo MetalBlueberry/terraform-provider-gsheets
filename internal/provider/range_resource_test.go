@@ -40,7 +40,11 @@ func TestAccRangeResource(t *testing.T) {
 						spreadsheetID := strings.Split(r.PathValue("spreadsheetIdUpdate"), ":")[0]
 						defer r.Body.Close()
 						requestBody := &sheets.BatchUpdateSpreadsheetRequest{}
-						json.NewDecoder(r.Body).Decode(requestBody)
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
 
 						res := sheets.BatchUpdateSpreadsheetResponse{
 							SpreadsheetId: spreadsheetID,
@@ -56,7 +60,7 @@ func TestAccRangeResource(t *testing.T) {
 								},
 							},
 						}
-						err := json.NewEncoder(w).Encode(res)
+						err = json.NewEncoder(w).Encode(res)
 						if err != nil {
 							log.Println(err)
 							w.WriteHeader(http.StatusInternalServerError)
@@ -70,7 +74,11 @@ func TestAccRangeResource(t *testing.T) {
 						updateRange := r.PathValue("range")
 						defer r.Body.Close()
 						requestBody := &sheets.ValueRange{}
-						json.NewDecoder(r.Body).Decode(requestBody)
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
 
 						res := sheets.UpdateValuesResponse{
 							SpreadsheetId: spreadsheetID,
@@ -79,7 +87,7 @@ func TestAccRangeResource(t *testing.T) {
 								Values: requestBody.Values,
 							},
 						}
-						err := json.NewEncoder(w).Encode(res)
+						err = json.NewEncoder(w).Encode(res)
 						if err != nil {
 							log.Println(err)
 							w.WriteHeader(http.StatusInternalServerError)
@@ -118,7 +126,11 @@ resource "gsheets_range" "test_range" {
 						updateRange := r.PathValue("range")
 						defer r.Body.Close()
 						requestBody := &sheets.ValueRange{}
-						json.NewDecoder(r.Body).Decode(requestBody)
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
 
 						res := sheets.UpdateValuesResponse{
 							SpreadsheetId: spreadsheetID,
@@ -127,7 +139,7 @@ resource "gsheets_range" "test_range" {
 								Values: requestBody.Values,
 							},
 						}
-						err := json.NewEncoder(w).Encode(res)
+						err = json.NewEncoder(w).Encode(res)
 						if err != nil {
 							log.Println(err)
 							w.WriteHeader(http.StatusInternalServerError)
@@ -209,7 +221,7 @@ func TestRemoveTrailingEmptyStrings(t *testing.T) {
 	}
 }
 
-// Helper function to check equality of slices
+// Helper function to check equality of slices.
 func equal(a, b []interface{}) bool {
 	if len(a) != len(b) {
 		return false
@@ -266,7 +278,7 @@ func TestRemoveEmptyRows(t *testing.T) {
 	}
 }
 
-// Helper function to check equality of 2D slices
+// Helper function to check equality of 2D slices.
 func equal2D(a, b [][]interface{}) bool {
 	if len(a) != len(b) {
 		return false

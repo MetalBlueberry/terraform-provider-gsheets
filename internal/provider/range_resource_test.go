@@ -263,7 +263,7 @@ resource "gsheets_range" "test_range" {
 	})
 }
 
-// Relies on the existence of a document that the service account has access to
+// Relies on the existence of a document that the service account has access to.
 func TestIntegrationRangeResource_RowChanges(t *testing.T) {
 	configVars := config.Variables{
 		"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),

@@ -1,4 +1,4 @@
-module terraform-provider-google-sheets
+module terraform-provider-gsheets
 
 go 1.22
 

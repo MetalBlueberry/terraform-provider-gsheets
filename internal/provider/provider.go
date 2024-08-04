@@ -144,10 +144,6 @@ func (p *GoogleSheetsProvider) Configure(ctx context.Context, req provider.Confi
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
-
-	// Example client configuration for data sources and resources
 	resp.DataSourceData = gclient
 	resp.ResourceData = gclient
 }

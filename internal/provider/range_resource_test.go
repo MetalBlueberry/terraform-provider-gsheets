@@ -281,7 +281,6 @@ func TestIntegrationRangeResource_RowChanges(t *testing.T) {
 		},
 
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		IsUnitTest:               true,
 		Steps: []resource.TestStep{
 			{
 				ConfigVariables: configVars,

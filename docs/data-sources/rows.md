@@ -18,7 +18,7 @@ Rows data source
 ### Required
 
 - `range` (String) The range to read
-- `sheet_id` (String) The file to get the rows from
+- `spreadsheet_id` (String) The file to get the rows from
 
 ### Read-Only
 

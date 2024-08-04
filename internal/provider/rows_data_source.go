@@ -1,4 +1,3 @@
-
 package provider
 
 import (
@@ -27,9 +26,9 @@ type RowsDataSource struct {
 
 // RowsDataSourceModel describes the data source data model.
 type RowsDataSourceModel struct {
-	SheetID types.String `tfsdk:"sheet_id"`
-	Range   types.String `tfsdk:"range"`
-	Rows    types.List   `tfsdk:"rows"`
+	SpreadsheetID types.String `tfsdk:"spreadsheet_id"`
+	Range         types.String `tfsdk:"range"`
+	Rows          types.List   `tfsdk:"rows"`
 }
 
 func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -41,7 +40,7 @@ func (d *RowsDataSource) Schema(ctx context.Context, req datasource.SchemaReques
 		MarkdownDescription: "Rows data source",
 
 		Attributes: map[string]schema.Attribute{
-			"sheet_id": schema.StringAttribute{
+			"spreadsheet_id": schema.StringAttribute{
 				MarkdownDescription: "The file to get the rows from",
 				Required:            true,
 			},
@@ -89,7 +88,7 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	request := d.client.Spreadsheets.Values.Get(data.SheetID.ValueString(), data.Range.ValueString())
+	request := d.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
 	values, err := request.Do()
 	if err != nil {
 		resp.Diagnostics.AddError(

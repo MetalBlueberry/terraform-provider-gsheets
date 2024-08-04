@@ -1,4 +1,3 @@
-
 package provider
 
 import (
@@ -26,7 +25,7 @@ provider "gsheets" {
 }
 
 data "gsheets_rows" "test" {
-  sheet_id = "example-sheet-id"
+  spreadsheet_id = "example-sheet-id"
   range    = "A1:B10"
 }
 `, server.URL)
@@ -61,7 +60,7 @@ data "gsheets_rows" "test" {
 
 				Config: testAccRowsDataSourceConfig,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "sheet_id", "example-sheet-id"),
+					resource.TestCheckResourceAttr("data.gsheets_rows.test", "spreadsheet_id", "example-sheet-id"),
 					resource.TestCheckResourceAttr("data.gsheets_rows.test", "range", "A1:B10"),
 					resource.TestCheckResourceAttr("data.gsheets_rows.test", "rows.#", "2"),
 					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "rows.0.*", "a"),

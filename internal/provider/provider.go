@@ -90,11 +90,14 @@ func (p *GoogleSheetsProvider) Configure(ctx context.Context, req provider.Confi
 
 		err := json.Unmarshal([]byte(data.ServiceAccountKey.ValueString()), credentials)
 		if err != nil {
+
+			resp.Diagnostics.AddError("unable to parse crentials as json, using file", err.Error())
+
 			f, err := os.Open(data.ServiceAccountKey.ValueString())
 			if err != nil {
 				resp.Diagnostics.AddError(
-					"Unable to open service account file in ",
-					err.Error(),
+					"Unable to open service account file",
+					"",
 				)
 				return
 			}

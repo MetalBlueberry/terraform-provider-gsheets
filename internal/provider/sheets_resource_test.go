@@ -102,14 +102,21 @@ resource "gsheets_sheet" "test" {
 
 						res := sheets.BatchUpdateSpreadsheetResponse{
 							SpreadsheetId: spreadsheetID,
-							Replies: []*sheets.Response{
+						}
+
+						// handle add sheet
+						if requestBody.Requests[0].UpdateSheetProperties != nil {
+							res.Replies = []*sheets.Response{
 								{
 									AddSheet: &sheets.AddSheetResponse{
 										Properties: &sheets.SheetProperties{Title: requestBody.Requests[0].UpdateSheetProperties.Properties.Title},
 									},
 								},
-							},
+							}
 						}
+						// handle delete
+						// Nothing
+
 						err = json.NewEncoder(w).Encode(res)
 						if err != nil {
 							log.Println(err)

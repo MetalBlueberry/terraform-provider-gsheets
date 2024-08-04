@@ -224,4 +224,25 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 // call DeleteResponse.State.RemoveResource(), so it can be omitted
 // from provider logic.
 func (r *SheetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data SheetsResourceModel
+
+	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	deleteRequest := r.client.Spreadsheets.BatchUpdate(data.SpreadsheetID.ValueString(), &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{DeleteSheet: &sheets.DeleteSheetRequest{
+				SheetId: data.Properties.SheetID.ValueInt64(),
+			}},
+		},
+	})
+	_, err := deleteRequest.Do()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to delete sheet", err.Error())
+		return
+	}
 }

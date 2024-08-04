@@ -33,4 +33,7 @@ website/vendor
 
 # Keep windows files with windows line endings
 *.winfile eol=crlf
-credentials.prod.json
+internal/provider/tests/credentials.test.json
+.gitsecret/keys/random_seed
+!*.secret
+.vscode/settings.json

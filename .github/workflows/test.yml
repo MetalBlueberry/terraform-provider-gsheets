@@ -82,6 +82,7 @@ jobs:
       - run: go mod download
       - env:
           TF_ACC: "1"
+          SHEET_TITLE: "gsheet_${{ matrix.terraform }}_${{ github.sha }}"
           SERVICE_ACCOUNT_CREDENTIALS: ${{ secrets.SERVICE_ACCOUNT_CREDENTIALS}}
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10

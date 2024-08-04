@@ -263,7 +263,18 @@ resource "gsheets_range" "test_range" {
 	})
 }
 
+// Relies on the existence of a document that the service account has access to
 func TestIntegrationRangeResource_RowChanges(t *testing.T) {
+	configVars := config.Variables{
+		"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),
+	}
+
+	expectedTitle := "test-title"
+	if v := os.Getenv("SHEET_TITLE"); v != "" {
+		expectedTitle = v
+	}
+	configVars["sheet_title"] = config.StringVariable(expectedTitle)
+
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			testAccPreCheck(t)
@@ -273,12 +284,15 @@ func TestIntegrationRangeResource_RowChanges(t *testing.T) {
 		IsUnitTest:               true,
 		Steps: []resource.TestStep{
 			{
-				ConfigVariables: config.Variables{
-					"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),
-				},
+				ConfigVariables: configVars,
 				Config: `
 variable "service_account_credentials" {
   description = "json value with the token obtained from the console"
+  type        = string
+}
+
+variable "sheet_title" {
+  description = "sheet title for the test run"
   type        = string
 }
 
@@ -289,7 +303,7 @@ provider "gsheets" {
 resource "gsheets_sheet" "test" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	properties = {
-		title = "test title"
+		title = var.sheet_title
 	}
 }
 resource "gsheets_range" "test_range" {
@@ -298,17 +312,19 @@ resource "gsheets_range" "test_range" {
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "0"),
 				),
 			},
 			{
-				ConfigVariables: config.Variables{
-					"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),
-				},
+				ConfigVariables: configVars,
 				Config: `
 variable "service_account_credentials" {
   description = "json value with the token obtained from the console"
+  type        = string
+}
+variable "sheet_title" {
+  description = "sheet title for the test run"
   type        = string
 }
 
@@ -319,7 +335,7 @@ provider "gsheets" {
 resource "gsheets_sheet" "test" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	properties = {
-		title = "test title"
+		title = var.sheet_title
 	}
 }
 resource "gsheets_range" "test_range" {
@@ -332,19 +348,21 @@ resource "gsheets_range" "test_range" {
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
 				),
 			},
 			{
-				ConfigVariables: config.Variables{
-					"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),
-				},
+				ConfigVariables: configVars,
 				Config: `
 variable "service_account_credentials" {
   description = "json value with the token obtained from the console"
+  type        = string
+}
+variable "sheet_title" {
+  description = "sheet title for the test run"
   type        = string
 }
 
@@ -355,7 +373,7 @@ provider "gsheets" {
 resource "gsheets_sheet" "test" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	properties = {
-		title = "test title"
+		title = var.sheet_title
 	}
 }
 resource "gsheets_range" "test_range" {
@@ -370,7 +388,7 @@ resource "gsheets_range" "test_range" {
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "4"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
@@ -379,12 +397,14 @@ resource "gsheets_range" "test_range" {
 				),
 			},
 			{
-				ConfigVariables: config.Variables{
-					"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),
-				},
+				ConfigVariables: configVars,
 				Config: `
 variable "service_account_credentials" {
   description = "json value with the token obtained from the console"
+  type        = string
+}
+variable "sheet_title" {
+  description = "sheet title for the test run"
   type        = string
 }
 
@@ -395,7 +415,7 @@ provider "gsheets" {
 resource "gsheets_sheet" "test" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	properties = {
-		title = "test title"
+		title = var.sheet_title
 	}
 }
 resource "gsheets_range" "test_range" {
@@ -407,18 +427,20 @@ resource "gsheets_range" "test_range" {
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "1"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "2"),
 				),
 			},
 			{
-				ConfigVariables: config.Variables{
-					"service_account_credentials": config.StringVariable(os.Getenv("SERVICE_ACCOUNT_CREDENTIALS")),
-				},
+				ConfigVariables: configVars,
 				Config: `
 variable "service_account_credentials" {
   description = "json value with the token obtained from the console"
+  type        = string
+}
+variable "sheet_title" {
+  description = "sheet title for the test run"
   type        = string
 }
 
@@ -429,7 +451,7 @@ provider "gsheets" {
 resource "gsheets_sheet" "test" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	properties = {
-		title = "test title"
+		title = var.sheet_title
 	}
 }
 resource "gsheets_range" "test_range" {
@@ -442,7 +464,7 @@ resource "gsheets_range" "test_range" {
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!D:F"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!D:F", expectedTitle)),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),

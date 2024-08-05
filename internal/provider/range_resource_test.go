@@ -210,7 +210,12 @@ resource "gsheets_range" "test_range" {
 				PreConfig: func() {
 					mux = http.NewServeMux()
 					var storedValues [][]interface{}
+
+					// I know this is a dirty hack, but I don't want to import external libraries now.
+					updateCalls := 0
 					mux.HandleFunc("PUT /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						updateCalls++
+
 						spreadsheetID := r.PathValue("spreadsheetId")
 						updateRange := r.PathValue("range")
 						defer r.Body.Close()
@@ -220,8 +225,10 @@ resource "gsheets_range" "test_range" {
 							w.WriteHeader(http.StatusInternalServerError)
 							return
 						}
-						if requestBody.MajorDimension != "COLUMNS" {
-							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
+						if updateCalls > 1 {
+							if requestBody.MajorDimension != "COLUMNS" {
+								t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
+							}
 						}
 
 						storedValues = requestBody.Values

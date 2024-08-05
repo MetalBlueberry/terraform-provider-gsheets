@@ -96,7 +96,6 @@ func (r *SheetResource) Configure(ctx context.Context, req resource.ConfigureReq
 func (r *SheetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -168,7 +167,6 @@ func (r *SheetResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	var data SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -183,13 +181,12 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	var stateData SheetsResourceModel
 	var planData SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Read Terraform plan data into the model
+
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 
 	if resp.Diagnostics.HasError() {
@@ -228,7 +225,6 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 func (r *SheetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {

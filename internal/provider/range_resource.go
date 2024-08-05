@@ -105,7 +105,7 @@ func Clear(reference [][]interface{}) [][]interface{} {
 }
 
 // Merge takes values on b and replaces them on a.
-// It leaves non matching elements as they are on a
+// It leaves non matching elements as they are on a.
 func Merge(a, b [][]interface{}) [][]interface{} {
 	for i := range b {
 		// if it is a new row
@@ -127,7 +127,7 @@ func Merge(a, b [][]interface{}) [][]interface{} {
 	return a
 }
 
-// KeepDimensions uses reference to get the desired dimensions and data for the values. If data is bigger, the dimensions will grow. Otherwise, it will fit the reference dimensions
+// KeepDimensions uses reference to get the desired dimensions and data for the values. If data is bigger, the dimensions will grow. Otherwise, it will fit the reference dimensions.
 func KeepDimensions(reference [][]interface{}, data [][]interface{}) [][]interface{} {
 	result := Clear(reference)
 	return Merge(result, data)

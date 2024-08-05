@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -295,11 +294,8 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Got %#v values when reading", getResponse.Values))
 	rowValues := data.ToInterface()
-	tflog.Info(ctx, fmt.Sprintf("Got %#v data rows", rowValues))
 	extended := KeepDimensions(rowValues, getResponse.Values)
-	tflog.Info(ctx, fmt.Sprintf("Got %#v after extension", extended))
 	data.Values = ValuesToList(extended)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)

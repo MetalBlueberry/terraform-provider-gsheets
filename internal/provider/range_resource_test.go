@@ -124,7 +124,7 @@ resource "gsheets_sheet" "test" {
 }
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
-	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
 }
 	`, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -194,7 +194,7 @@ resource "gsheets_sheet" "test" {
 
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
-	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
 	values = [
 				["a","b","c"],
 				[1,2,3],
@@ -310,7 +310,7 @@ resource "gsheets_sheet" "test" {
 
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
-	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
 	major_dimension = "COLUMNS"
 	values = [
 				["a","1"],
@@ -443,7 +443,7 @@ resource "gsheets_sheet" "test" {
 
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
-	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
 	major_dimension = "COLUMNS"
 	values = [
 				["a","1"],

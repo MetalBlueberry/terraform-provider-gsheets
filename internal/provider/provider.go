@@ -159,7 +159,9 @@ func (p *GoogleSheetsProvider) DataSources(ctx context.Context) []func() datasou
 }
 
 func (p *GoogleSheetsProvider) Functions(ctx context.Context) []func() function.Function {
-	return []func() function.Function{}
+	return []func() function.Function{
+		NewFormatRangeFunction,
+	}
 }
 
 func New(version string) func() provider.Provider {

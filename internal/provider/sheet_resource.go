@@ -7,6 +7,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"google.golang.org/api/sheets/v4"
@@ -48,6 +50,9 @@ This is useful to create an extranet if you need more than one. `,
 			"spreadsheet_id": schema.StringAttribute{
 				MarkdownDescription: "The file to get the rows from",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"properties": schema.SingleNestedAttribute{
 				Required: true,
@@ -155,7 +160,6 @@ func (r *SheetResource) ImportState(ctx context.Context, req resource.ImportStat
 		data.Properties.Index = basetypes.NewInt64Value(sheet.Properties.Index)
 		break
 	}
-	// may not be ideal, I need to allow different sheets to be imported
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

@@ -179,6 +179,198 @@ resource "gsheets_range" "test_range" {
 						}
 						w.WriteHeader(200)
 					})
+				},
+				Config: fmt.Sprintf(`
+provider "gsheets" {
+	endpoint = "%s"
+}
+
+resource "gsheets_sheet" "test" {
+	spreadsheet_id = "test-spreadsheet-id"
+	properties = {
+		title = "test title"
+	}
+}
+
+resource "gsheets_range" "test_range" {
+	spreadsheet_id = "test-spreadsheet-id"
+	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	values = [
+				["a","b","c"],
+				[1,2,3],
+	]
+}
+	`, server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
+				),
+			},
+			{
+				PreConfig: func() {
+					mux = http.NewServeMux()
+					var storedValues [][]interface{}
+					mux.HandleFunc("PUT /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						spreadsheetID := r.PathValue("spreadsheetId")
+						updateRange := r.PathValue("range")
+						defer r.Body.Close()
+						requestBody := &sheets.ValueRange{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						if requestBody.MajorDimension != "COLUMNS" {
+							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
+						}
+
+						storedValues = requestBody.Values
+
+						res := sheets.UpdateValuesResponse{
+							SpreadsheetId: spreadsheetID,
+							UpdatedData: &sheets.ValueRange{
+								Range:  updateRange,
+								Values: requestBody.Values,
+							},
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					getCallCount := 0
+					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						getCallCount++
+						updateRange := r.PathValue("range")
+
+						if getCallCount == 2 {
+							if majorDimension := r.URL.Query().Get("majorDimension"); majorDimension != "COLUMNS" {
+								t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", majorDimension)
+							}
+						}
+
+						res := sheets.ValueRange{
+							Range:  updateRange,
+							Values: storedValues,
+						}
+						err := json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					mux.HandleFunc("POST /v4/spreadsheets/{spreadsheetId}/values/{rangeclear}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := strings.Split(r.PathValue("rangeclear"), ":")[0]
+						spreadsheetID := r.PathValue("spreadsheetId")
+						defer r.Body.Close()
+
+						requestBody := &sheets.ClearValuesRequest{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+
+						res := sheets.ClearValuesResponse{
+							ClearedRange:  updateRange,
+							SpreadsheetId: spreadsheetID,
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+				},
+				Config: fmt.Sprintf(`
+provider "gsheets" {
+	endpoint = "%s"
+}
+
+resource "gsheets_sheet" "test" {
+	spreadsheet_id = "test-spreadsheet-id"
+	properties = {
+		title = "test title"
+	}
+}
+
+resource "gsheets_range" "test_range" {
+	spreadsheet_id = "test-spreadsheet-id"
+	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	major_dimension = "COLUMNS"
+	values = [
+				["a","1"],
+				["b","2"],
+				["c","3"],
+	]
+}
+	`, server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "3"),
+				),
+			},
+			{
+				PreConfig: func() {
+					mux = http.NewServeMux()
+					var storedValues [][]interface{}
+					mux.HandleFunc("PUT /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						spreadsheetID := r.PathValue("spreadsheetId")
+						updateRange := r.PathValue("range")
+						defer r.Body.Close()
+						requestBody := &sheets.ValueRange{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						if requestBody.MajorDimension != "COLUMNS" {
+							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
+						}
+
+						storedValues = requestBody.Values
+
+						res := sheets.UpdateValuesResponse{
+							SpreadsheetId: spreadsheetID,
+							UpdatedData: &sheets.ValueRange{
+								Range:  updateRange,
+								Values: requestBody.Values,
+							},
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := r.PathValue("range")
+
+						if majorDimension := r.URL.Query().Get("majorDimension"); majorDimension != "COLUMNS" {
+							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", majorDimension)
+						}
+
+						res := sheets.ValueRange{
+							Range:  updateRange,
+							Values: storedValues,
+						}
+						err := json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
 					mux.HandleFunc("POST /v4/spreadsheets/{spreadsheetId}/values/{rangeclear}", func(w http.ResponseWriter, r *http.Request) {
 						updateRange := strings.Split(r.PathValue("rangeclear"), ":")[0]
 						spreadsheetID := r.PathValue("spreadsheetId")
@@ -245,9 +437,10 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	major_dimension = "COLUMNS"
 	values = [
-				["a","b","c"],
-				[1,2,3],
+				["a","1"],
+				["b","2"],
 	]
 }
 	`, server.URL),

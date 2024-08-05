@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"google.golang.org/api/sheets/v4"
@@ -26,9 +28,10 @@ type RowsDataSource struct {
 
 // RowsDataSourceModel describes the data source data model.
 type RowsDataSourceModel struct {
-	SpreadsheetID types.String `tfsdk:"spreadsheet_id"`
-	Range         types.String `tfsdk:"range"`
-	Values        types.List   `tfsdk:"values"`
+	SpreadsheetID  types.String `tfsdk:"spreadsheet_id"`
+	Range          types.String `tfsdk:"range"`
+	Values         types.List   `tfsdk:"values"`
+	MajorDimension types.String `tfsdk:"major_dimension"`
 }
 
 func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -56,6 +59,13 @@ To fetch data from a specific sheet, you must use the range syntax to point to a
 				},
 				MarkdownDescription: "The data that will be read",
 				Computed:            true,
+			},
+			"major_dimension": schema.StringAttribute{
+				MarkdownDescription: "major dimension for the values",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("ROWS", "COLUMNS"),
+				},
 			},
 		},
 	}
@@ -91,6 +101,10 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	}
 
 	request := d.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	if !data.MajorDimension.IsNull() {
+		request.MajorDimension(data.MajorDimension.ValueString())
+	}
+
 	values, err := request.Do()
 	if err != nil {
 		resp.Diagnostics.AddError(

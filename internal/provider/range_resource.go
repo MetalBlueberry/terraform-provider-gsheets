@@ -36,6 +36,7 @@ type RangeResourceModel struct {
 	Range            types.String `tfsdk:"range"`
 	ValueInputOption types.String `tfsdk:"value_input_option"`
 	Values           types.List   `tfsdk:"values"`
+	MajorDimension   types.String `tfsdk:"major_dimension"`
 }
 
 func (m RangeResourceModel) ToInterface() [][]interface{} {
@@ -167,6 +168,16 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					ElemType: types.StringType,
 				}, []attr.Value{})),
 			},
+			"major_dimension": schema.StringAttribute{
+				MarkdownDescription: "major dimension for the values",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("ROWS", "COLUMNS"),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
 		},
 	}
 }
@@ -205,11 +216,15 @@ func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	updateRequest := r.client.Spreadsheets.Values.Update(data.SpreadsheetID.ValueString(), data.Range.ValueString(), &sheets.ValueRange{
+	updateBody := &sheets.ValueRange{
 		Range:  data.Range.ValueString(),
 		Values: data.ToInterface(),
-	})
+	}
+	if !data.MajorDimension.IsNull() {
+		updateBody.MajorDimension = data.MajorDimension.ValueString()
+	}
+
+	updateRequest := r.client.Spreadsheets.Values.Update(data.SpreadsheetID.ValueString(), data.Range.ValueString(), updateBody)
 
 	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(data.ValueInputOption.ValueString())
@@ -236,6 +251,10 @@ func (r *RangeResource) ImportState(ctx context.Context, req resource.ImportStat
 	data.Range = basetypes.NewStringValue(parts[1])
 
 	getRequest := r.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	if !data.MajorDimension.IsNull() {
+		getRequest.MajorDimension(data.MajorDimension.ValueString())
+	}
+
 	getRequest.Context(ctx)
 	getResponse, err := getRequest.Do()
 	if err != nil {
@@ -263,6 +282,10 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	getRequest := r.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	if !data.MajorDimension.IsNull() {
+		getRequest.MajorDimension(data.MajorDimension.ValueString())
+	}
+
 	getRequest.Context(ctx)
 	getResponse, err := getRequest.Do()
 	if err != nil {
@@ -300,10 +323,15 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SpreadsheetID.ValueString(), stateData.Range.ValueString(), &sheets.ValueRange{
+	updateBody := &sheets.ValueRange{
 		Range:  planData.Range.ValueString(),
-		Values: planData.KeepDimensions(stateData.ToInterface()),
-	})
+		Values: planData.ToInterface(),
+	}
+	if !planData.MajorDimension.IsNull() {
+		updateBody.MajorDimension = planData.MajorDimension.ValueString()
+	}
+
+	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SpreadsheetID.ValueString(), stateData.Range.ValueString(), updateBody)
 	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(planData.ValueInputOption.ValueString())
 

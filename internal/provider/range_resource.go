@@ -354,6 +354,9 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 // If execution completes without error, the framework will automatically
 // call DeleteResponse.State.RemoveResource(), so it can be omitted
 // from provider logic.
+//
+// Known issues: When the range is a single cell like A1, the delete will just clear that value and not the actual data range.
+// This can provably be fixed by using the state and using an update instead of a clear request
 func (r *RangeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data RangeResourceModel
 

@@ -24,7 +24,7 @@ data "gsheets_range" "test" {
 
 
 output "rows" {
-  value = gsheets_range.test.rows
+  value = gsheets_range.test.values
 }
 ```
 
@@ -36,6 +36,10 @@ output "rows" {
 - `range` (String) The range to read. It follows standard range notation documented in google sheets.
 - `spreadsheet_id` (String) The unique ID for the spreadsheet. It can be obtained from the URL.
 
+### Optional
+
+- `major_dimension` (String) major dimension for the values
+
 ### Read-Only
 
-- `rows` (List of List of String) The data that will be readed
+- `values` (List of List of String) The data that will be read

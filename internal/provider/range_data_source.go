@@ -15,30 +15,30 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ datasource.DataSource = &RowsDataSource{}
+var _ datasource.DataSource = &RangeDataSource{}
 
-func NewRowsDataSource() datasource.DataSource {
-	return &RowsDataSource{}
+func NewRangeDataSource() datasource.DataSource {
+	return &RangeDataSource{}
 }
 
-// RowsDataSource defines the data source implementation.
-type RowsDataSource struct {
+// RangeDataSource defines the data source implementation.
+type RangeDataSource struct {
 	client *sheets.Service
 }
 
-// RowsDataSourceModel describes the data source data model.
-type RowsDataSourceModel struct {
+// RangeDataSourceModel describes the data source data model.
+type RangeDataSourceModel struct {
 	SpreadsheetID  types.String `tfsdk:"spreadsheet_id"`
 	Range          types.String `tfsdk:"range"`
 	Values         types.List   `tfsdk:"values"`
 	MajorDimension types.String `tfsdk:"major_dimension"`
 }
 
-func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_rows"
+func (d *RangeDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_range"
 }
 
-func (d *RowsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *RangeDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: `Allows to fetch data from a spreadsheet by providing the spreadsheet_id and the range.
 
@@ -71,7 +71,7 @@ To fetch data from a specific sheet, you must use the range syntax to point to a
 	}
 }
 
-func (d *RowsDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *RangeDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -91,8 +91,8 @@ func (d *RowsDataSource) Configure(ctx context.Context, req datasource.Configure
 	d.client = client
 }
 
-func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data RowsDataSourceModel
+func (d *RangeDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data RangeDataSourceModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 

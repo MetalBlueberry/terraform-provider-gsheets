@@ -23,7 +23,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
   spreadsheet_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   range          = "'${gsheets_sheet.test.properties.title}'!A:C"
-  rows = [
+  values = [
     ["a", "b", "c"],
     [1, 2, 3],
   ]
@@ -40,5 +40,6 @@ resource "gsheets_range" "test_range" {
 
 ### Optional
 
-- `rows` (List of List of String) The rows
+- `major_dimension` (String) major dimension for the values
 - `value_input_option` (String) how to post data
+- `values` (List of List of String) The rows

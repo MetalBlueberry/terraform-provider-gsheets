@@ -54,17 +54,17 @@ provider "gsheets" {
 	endpoint = "%s"
 }
 
-data "gsheets_rows" "test" {
+data "gsheets_range" "test" {
   spreadsheet_id = "example-sheet-id"
   range    = "A1:B10"
 }
 `, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "spreadsheet_id", "example-sheet-id"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "range", "A1:B10"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "values.#", "2"),
-					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "values.0.*", "a"),
-					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "values.1.*", "3"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "spreadsheet_id", "example-sheet-id"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "range", "A1:B10"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "values.#", "2"),
+					resource.TestCheckTypeSetElemAttr("data.gsheets_range.test", "values.0.*", "a"),
+					resource.TestCheckTypeSetElemAttr("data.gsheets_range.test", "values.1.*", "3"),
 				),
 			},
 			{
@@ -100,19 +100,19 @@ provider "gsheets" {
 	endpoint = "%s"
 }
 
-data "gsheets_rows" "test" {
+data "gsheets_range" "test" {
   spreadsheet_id = "example-sheet-id"
   range    = "A1:B10"
   major_dimension = "COLUMNS"
 }
 `, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "spreadsheet_id", "example-sheet-id"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "range", "A1:B10"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "values.#", "3"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "values.0.#", "2"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "values.1.#", "2"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "values.2.#", "2"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "spreadsheet_id", "example-sheet-id"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "range", "A1:B10"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "values.#", "3"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "values.0.#", "2"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "values.1.#", "2"),
+					resource.TestCheckResourceAttr("data.gsheets_range.test", "values.2.#", "2"),
 				),
 			},
 		},

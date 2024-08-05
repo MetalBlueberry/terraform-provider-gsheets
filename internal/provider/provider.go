@@ -154,7 +154,7 @@ func (p *GoogleSheetsProvider) Resources(ctx context.Context) []func() resource.
 
 func (p *GoogleSheetsProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewRowsDataSource,
+		NewRangeDataSource,
 	}
 }
 

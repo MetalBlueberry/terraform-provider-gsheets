@@ -1,5 +1,5 @@
 
-data "gsheets_rows" "test" {
+data "gsheets_range" "test" {
   // The id can be obtained from the browser URL
   spreadsheet_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   range          = "A1:B10"
@@ -7,5 +7,5 @@ data "gsheets_rows" "test" {
 
 
 output "rows" {
-  value = gsheets_rows.test.values
+  value = gsheets_range.test.values
 }

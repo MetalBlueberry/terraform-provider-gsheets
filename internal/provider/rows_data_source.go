@@ -37,22 +37,24 @@ func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRe
 
 func (d *RowsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Rows data source",
+		MarkdownDescription: `Allows to fetch data from a spreadsheet by providing the spreadsheet_id and the range.
+
+To fetch data from a specific sheet, you must use the range syntax to point to a specific sheet.`,
 
 		Attributes: map[string]schema.Attribute{
 			"spreadsheet_id": schema.StringAttribute{
-				MarkdownDescription: "The file to get the rows from",
+				MarkdownDescription: "The unique ID for the spreadsheet. It can be obtained from the URL.",
 				Required:            true,
 			},
 			"range": schema.StringAttribute{
-				MarkdownDescription: "The range to read",
+				MarkdownDescription: "The range to read. It follows standard range notation documented in google sheets.",
 				Required:            true,
 			},
 			"rows": schema.ListAttribute{
 				ElementType: types.ListType{
 					ElemType: types.StringType,
 				},
-				MarkdownDescription: "The rows",
+				MarkdownDescription: "The data that will be readed",
 				Computed:            true,
 			},
 		},

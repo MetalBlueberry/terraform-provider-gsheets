@@ -4,3 +4,8 @@ data "gsheets_rows" "test" {
   spreadsheet_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   range          = "A1:B10"
 }
+
+
+output "rows" {
+  value = gsheets_rows.test.rows
+}

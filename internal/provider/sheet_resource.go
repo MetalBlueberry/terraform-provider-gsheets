@@ -40,7 +40,9 @@ func (r *SheetResource) Metadata(ctx context.Context, req resource.MetadataReque
 
 func (r *SheetResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Sheets resource",
+		MarkdownDescription: `The resource creates a sheet in a known Spreadsheet. 
+		
+This is useful to create an extranet if you need more than one. `,
 
 		Attributes: map[string]schema.Attribute{
 			"spreadsheet_id": schema.StringAttribute{

@@ -8,7 +8,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
   spreadsheet_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   range          = "'${gsheets_sheet.test.properties.title}'!A:C"
-  rows = [
+  values = [
     ["a", "b", "c"],
     [1, 2, 3],
   ]

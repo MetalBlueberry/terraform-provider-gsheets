@@ -129,7 +129,7 @@ resource "gsheets_range" "test_range" {
 	`, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "0"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "0"),
 				),
 			},
 			{
@@ -245,7 +245,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 				["a","b","c"],
 				[1,2,3],
 	]
@@ -253,7 +253,7 @@ resource "gsheets_range" "test_range" {
 	`, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
 				),
 			},
 		},
@@ -309,7 +309,7 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "0"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "0"),
 				),
 			},
 			{
@@ -337,7 +337,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 	["a","b","c"],
 	[1,2,3],
 	]
@@ -345,9 +345,9 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.1.#", "3"),
 				),
 			},
 			{
@@ -375,7 +375,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 	["a","b","c"],
 	[1,2,""],
 	["x",2,"z"],
@@ -385,11 +385,11 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "4"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.2.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.3.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "4"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.1.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.2.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.3.#", "3"),
 				),
 			},
 			{
@@ -417,15 +417,15 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 	["",""],
 	]
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "1"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "1"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "2"),
 				),
 			},
 			{
@@ -453,7 +453,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!D:F"
-	rows = [
+	values = [
 	["a","b","c"],
 	[1,2,3],
 	]
@@ -461,9 +461,9 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!D:F", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.1.#", "3"),
 				),
 			},
 		},

@@ -7,5 +7,5 @@ data "gsheets_rows" "test" {
 
 
 output "rows" {
-  value = gsheets_rows.test.rows
+  value = gsheets_rows.test.values
 }

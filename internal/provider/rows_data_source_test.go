@@ -62,9 +62,9 @@ data "gsheets_rows" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.gsheets_rows.test", "spreadsheet_id", "example-sheet-id"),
 					resource.TestCheckResourceAttr("data.gsheets_rows.test", "range", "A1:B10"),
-					resource.TestCheckResourceAttr("data.gsheets_rows.test", "rows.#", "2"),
-					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "rows.0.*", "a"),
-					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "rows.1.*", "3"),
+					resource.TestCheckResourceAttr("data.gsheets_rows.test", "values.#", "2"),
+					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "values.0.*", "a"),
+					resource.TestCheckTypeSetElemAttr("data.gsheets_rows.test", "values.1.*", "3"),
 				),
 			},
 		},

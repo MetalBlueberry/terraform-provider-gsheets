@@ -35,12 +35,12 @@ type RangeResourceModel struct {
 	SpreadsheetID    types.String `tfsdk:"spreadsheet_id"`
 	Range            types.String `tfsdk:"range"`
 	ValueInputOption types.String `tfsdk:"value_input_option"`
-	Rows             types.List   `tfsdk:"rows"`
+	Values           types.List   `tfsdk:"values"`
 }
 
-func (m RangeResourceModel) RowsToValues() [][]interface{} {
+func (m RangeResourceModel) ToInterface() [][]interface{} {
 	values := [][]interface{}{}
-	for _, el := range m.Rows.Elements() {
+	for _, el := range m.Values.Elements() {
 		row := []interface{}{}
 		elListValue, _ := el.(basetypes.ListValue)
 		for _, ell := range elListValue.Elements() {
@@ -53,8 +53,8 @@ func (m RangeResourceModel) RowsToValues() [][]interface{} {
 }
 
 // I need to write unit test for the reason why I have this :harold:.
-func (m RangeResourceModel) RowsToValuesClean() [][]interface{} {
-	values := m.RowsToValues()
+func (m RangeResourceModel) ToCleanInterface() [][]interface{} {
+	values := m.ToInterface()
 	for i := range values {
 		values[i] = removeTrailingEmptyStrings(values[i])
 	}
@@ -123,7 +123,7 @@ func KeepDimensions(reference [][]interface{}, data [][]interface{}) [][]interfa
 }
 
 func (m RangeResourceModel) KeepDimensions(reference [][]interface{}) [][]interface{} {
-	newValues := m.RowsToValues()
+	newValues := m.ToInterface()
 	return KeepDimensions(reference, newValues)
 }
 
@@ -156,7 +156,7 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					stringvalidator.OneOf("RAW", "USER_ENTERED"),
 				},
 			},
-			"rows": schema.ListAttribute{
+			"values": schema.ListAttribute{
 				ElementType: types.ListType{
 					ElemType: types.StringType,
 				},
@@ -208,7 +208,7 @@ func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	updateRequest := r.client.Spreadsheets.Values.Update(data.SpreadsheetID.ValueString(), data.Range.ValueString(), &sheets.ValueRange{
 		Range:  data.Range.ValueString(),
-		Values: data.RowsToValues(),
+		Values: data.ToInterface(),
 	})
 
 	updateRequest.Context(ctx)
@@ -243,7 +243,7 @@ func (r *RangeResource) ImportState(ctx context.Context, req resource.ImportStat
 		return
 	}
 
-	data.Rows = ValuesToList(getResponse.Values)
+	data.Values = ValuesToList(getResponse.Values)
 	data.ValueInputOption = basetypes.NewStringValue("USER_ENTERED")
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
@@ -271,11 +271,11 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("Got %#v values when reading", getResponse.Values))
-	rowValues := data.RowsToValues()
+	rowValues := data.ToInterface()
 	tflog.Info(ctx, fmt.Sprintf("Got %#v data rows", rowValues))
 	extended := KeepDimensions(rowValues, getResponse.Values)
 	tflog.Info(ctx, fmt.Sprintf("Got %#v after extension", extended))
-	data.Rows = ValuesToList(extended)
+	data.Values = ValuesToList(extended)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -302,7 +302,7 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SpreadsheetID.ValueString(), stateData.Range.ValueString(), &sheets.ValueRange{
 		Range:  planData.Range.ValueString(),
-		Values: planData.KeepDimensions(stateData.RowsToValues()),
+		Values: planData.KeepDimensions(stateData.ToInterface()),
 	})
 	updateRequest.Context(ctx)
 	updateRequest.ValueInputOption(planData.ValueInputOption.ValueString())
@@ -314,7 +314,7 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	}
 
 	stateData.SpreadsheetID = basetypes.NewStringValue(updateResponse.SpreadsheetId)
-	stateData.Rows = planData.Rows
+	stateData.Values = planData.Values
 	stateData.ValueInputOption = planData.ValueInputOption
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)

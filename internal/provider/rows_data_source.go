@@ -28,7 +28,7 @@ type RowsDataSource struct {
 type RowsDataSourceModel struct {
 	SpreadsheetID types.String `tfsdk:"spreadsheet_id"`
 	Range         types.String `tfsdk:"range"`
-	Rows          types.List   `tfsdk:"rows"`
+	Values        types.List   `tfsdk:"values"`
 }
 
 func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -50,11 +50,11 @@ To fetch data from a specific sheet, you must use the range syntax to point to a
 				MarkdownDescription: "The range to read. It follows standard range notation documented in google sheets.",
 				Required:            true,
 			},
-			"rows": schema.ListAttribute{
+			"values": schema.ListAttribute{
 				ElementType: types.ListType{
 					ElemType: types.StringType,
 				},
-				MarkdownDescription: "The data that will be readed",
+				MarkdownDescription: "The data that will be read",
 				Computed:            true,
 			},
 		},
@@ -107,7 +107,7 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	data.Rows = ValuesToList(values.Values)
+	data.Values = ValuesToList(values.Values)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

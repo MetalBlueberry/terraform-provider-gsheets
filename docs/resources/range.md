@@ -22,7 +22,7 @@ resource "gsheets_sheet" "test" {
 }
 resource "gsheets_range" "test_range" {
   spreadsheet_id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  range          = "'${gsheets_sheet.test.properties.title}'!A:C"
+  range          = provider::gsheets::format_range(gsheets_sheet.test, "A:C")
   values = [
     ["a", "b", "c"],
     [1, 2, 3],

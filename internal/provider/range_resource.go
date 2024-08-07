@@ -54,13 +54,18 @@ func (m RangeResourceModel) ToInterface() [][]interface{} {
 
 // I need to write unit test for the reason why I have this :harold:.
 func (m RangeResourceModel) ToCleanInterface() [][]interface{} {
-	values := m.ToInterface()
-	for i := range values {
-		values[i] = removeTrailingEmptyStrings(values[i])
-	}
-	values = removeEmptyRows(values)
+	return Clean(m.ToInterface())
+}
 
-	return values
+// Clean removes empty strings at the end of rows and empty rows.
+// It mimics what gogole sheets does when fetching data from empty cells.
+func Clean(slice [][]interface{}) [][]interface{} {
+	for i := range slice {
+		slice[i] = removeTrailingEmptyStrings(slice[i])
+	}
+	slice = removeEmptyRows(slice)
+
+	return slice
 }
 
 func removeTrailingEmptyStrings(slice []interface{}) []interface{} {
@@ -92,6 +97,7 @@ func removeEmptyRows(values [][]interface{}) [][]interface{} {
 	return values
 }
 
+// Clear replaces all values for empty strings.
 func Clear(reference [][]interface{}) [][]interface{} {
 	result := [][]interface{}{}
 

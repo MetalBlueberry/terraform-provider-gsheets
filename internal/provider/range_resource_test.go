@@ -342,7 +342,7 @@ resource "gsheets_range" "test_range" {
 							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
 						}
 
-						storedValues = requestBody.Values
+						storedValues = Clean(requestBody.Values)
 
 						res := sheets.UpdateValuesResponse{
 							SpreadsheetId: spreadsheetID,
@@ -476,8 +476,6 @@ func TestIntegrationRangeResource_RowChanges(t *testing.T) {
 		PreCheck: func() {
 			testAccPreCheck(t)
 		},
-
-		IsUnitTest: true,
 
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{

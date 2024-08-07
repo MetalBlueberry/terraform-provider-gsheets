@@ -477,6 +477,8 @@ func TestIntegrationRangeResource_RowChanges(t *testing.T) {
 			testAccPreCheck(t)
 		},
 
+		IsUnitTest: true,
+
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{

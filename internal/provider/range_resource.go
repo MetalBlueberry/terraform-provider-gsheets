@@ -305,33 +305,30 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 // state, and prior state values should be read from the
 // UpdateRequest and new state values set on the UpdateResponse.
 func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var stateData RangeResourceModel
+	var newState RangeResourceModel
+	var originalState RangeResourceModel
 	var planData RangeResourceModel
 
-	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
+	resp.Diagnostics.Append(req.State.Get(ctx, &newState)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &originalState)...)
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	newState.Values = planData.Values
+	newState.ValueInputOption = planData.ValueInputOption
+
+	planData.Values = ValuesToList(KeepDimensions(originalState.ToInterface(), planData.ToInterface()))
 	updateRequest := r.buildUpdateCall(ctx, &planData)
-	updateResponse, err := updateRequest.Do()
+	_, err := updateRequest.Do()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to perform update request", err.Error())
 		return
 	}
 
-	stateData.SpreadsheetID = basetypes.NewStringValue(updateResponse.SpreadsheetId)
-	stateData.Values = planData.Values
-	stateData.ValueInputOption = planData.ValueInputOption
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &newState)...)
 }
 
 // Delete is called when the provider must delete the resource. Config

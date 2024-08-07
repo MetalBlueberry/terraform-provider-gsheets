@@ -7,6 +7,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"google.golang.org/api/sheets/v4"
@@ -40,12 +42,17 @@ func (r *SheetResource) Metadata(ctx context.Context, req resource.MetadataReque
 
 func (r *SheetResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Sheets resource",
+		MarkdownDescription: `The resource creates a sheet in a known Spreadsheet. 
+		
+This is useful to create an extranet if you need more than one. `,
 
 		Attributes: map[string]schema.Attribute{
 			"spreadsheet_id": schema.StringAttribute{
 				MarkdownDescription: "The file to get the rows from",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"properties": schema.SingleNestedAttribute{
 				Required: true,
@@ -94,7 +101,6 @@ func (r *SheetResource) Configure(ctx context.Context, req resource.ConfigureReq
 func (r *SheetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -154,7 +160,6 @@ func (r *SheetResource) ImportState(ctx context.Context, req resource.ImportStat
 		data.Properties.Index = basetypes.NewInt64Value(sheet.Properties.Index)
 		break
 	}
-	// may not be ideal, I need to allow different sheets to be imported
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -166,7 +171,6 @@ func (r *SheetResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	var data SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -181,13 +185,12 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	var stateData SheetsResourceModel
 	var planData SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Read Terraform plan data into the model
+
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 
 	if resp.Diagnostics.HasError() {
@@ -226,7 +229,6 @@ func (r *SheetResource) Update(ctx context.Context, req resource.UpdateRequest, 
 func (r *SheetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data SheetsResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {

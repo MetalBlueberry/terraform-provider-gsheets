@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -35,12 +34,13 @@ type RangeResourceModel struct {
 	SpreadsheetID    types.String `tfsdk:"spreadsheet_id"`
 	Range            types.String `tfsdk:"range"`
 	ValueInputOption types.String `tfsdk:"value_input_option"`
-	Rows             types.List   `tfsdk:"rows"`
+	Values           types.List   `tfsdk:"values"`
+	MajorDimension   types.String `tfsdk:"major_dimension"`
 }
 
-func (m RangeResourceModel) RowsToValues() [][]interface{} {
+func (m RangeResourceModel) ToInterface() [][]interface{} {
 	values := [][]interface{}{}
-	for _, el := range m.Rows.Elements() {
+	for _, el := range m.Values.Elements() {
 		row := []interface{}{}
 		elListValue, _ := el.(basetypes.ListValue)
 		for _, ell := range elListValue.Elements() {
@@ -53,8 +53,8 @@ func (m RangeResourceModel) RowsToValues() [][]interface{} {
 }
 
 // I need to write unit test for the reason why I have this :harold:.
-func (m RangeResourceModel) RowsToValuesClean() [][]interface{} {
-	values := m.RowsToValues()
+func (m RangeResourceModel) ToCleanInterface() [][]interface{} {
+	values := m.ToInterface()
 	for i := range values {
 		values[i] = removeTrailingEmptyStrings(values[i])
 	}
@@ -92,7 +92,7 @@ func removeEmptyRows(values [][]interface{}) [][]interface{} {
 	return values
 }
 
-func KeepDimensions(reference [][]interface{}, data [][]interface{}) [][]interface{} {
+func Clear(reference [][]interface{}) [][]interface{} {
 	result := [][]interface{}{}
 
 	for i := range reference {
@@ -101,29 +101,40 @@ func KeepDimensions(reference [][]interface{}, data [][]interface{}) [][]interfa
 			result[i] = append(result[i], "")
 		}
 	}
-
-	for i := range data {
-		// if it is a new row
-		if len(result) == i {
-			//append it
-			result = append(result, []interface{}{})
-		}
-		for j := range data[i] {
-			// if original contains the position
-			if len(result) > i && len(result[i]) > j {
-				//replace
-				result[i][j] = data[i][j]
-			} else {
-				// append
-				result[i] = append(result[i], data[i][j])
-			}
-		}
-	}
 	return result
 }
 
+// Merge takes values on b and replaces them on a.
+// It leaves non matching elements as they are on a.
+func Merge(a, b [][]interface{}) [][]interface{} {
+	for i := range b {
+		// if it is a new row
+		if len(a) == i {
+			//append it
+			a = append(a, []interface{}{})
+		}
+		for j := range b[i] {
+			// if original contains the position
+			if len(a) > i && len(a[i]) > j {
+				//replace
+				a[i][j] = b[i][j]
+			} else {
+				// append
+				a[i] = append(a[i], b[i][j])
+			}
+		}
+	}
+	return a
+}
+
+// KeepDimensions uses reference to get the desired dimensions and data for the values. If data is bigger, the dimensions will grow. Otherwise, it will fit the reference dimensions.
+func KeepDimensions(reference [][]interface{}, data [][]interface{}) [][]interface{} {
+	result := Clear(reference)
+	return Merge(result, data)
+}
+
 func (m RangeResourceModel) KeepDimensions(reference [][]interface{}) [][]interface{} {
-	newValues := m.RowsToValues()
+	newValues := m.ToInterface()
 	return KeepDimensions(reference, newValues)
 }
 
@@ -139,6 +150,9 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			"spreadsheet_id": schema.StringAttribute{
 				MarkdownDescription: "The file to get the rows from",
 				Required:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"range": schema.StringAttribute{
 				MarkdownDescription: "The range to read",
@@ -156,7 +170,7 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					stringvalidator.OneOf("RAW", "USER_ENTERED"),
 				},
 			},
-			"rows": schema.ListAttribute{
+			"values": schema.ListAttribute{
 				ElementType: types.ListType{
 					ElemType: types.StringType,
 				},
@@ -166,6 +180,16 @@ func (r *RangeResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Default: listdefault.StaticValue(basetypes.NewListValueMust(types.ListType{
 					ElemType: types.StringType,
 				}, []attr.Value{})),
+			},
+			"major_dimension": schema.StringAttribute{
+				MarkdownDescription: "major dimension for the values",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("ROWS", "COLUMNS"),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 		},
 	}
@@ -199,20 +223,13 @@ func (r *RangeResource) Configure(ctx context.Context, req resource.ConfigureReq
 func (r *RangeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data RangeResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	updateRequest := r.client.Spreadsheets.Values.Update(data.SpreadsheetID.ValueString(), data.Range.ValueString(), &sheets.ValueRange{
-		Range:  data.Range.ValueString(),
-		Values: data.RowsToValues(),
-	})
-
-	updateRequest.Context(ctx)
-	updateRequest.ValueInputOption(data.ValueInputOption.ValueString())
+	updateRequest := r.buildUpdateCall(ctx, &data)
 	_, err := updateRequest.Do()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to perform update", err.Error())
@@ -236,6 +253,10 @@ func (r *RangeResource) ImportState(ctx context.Context, req resource.ImportStat
 	data.Range = basetypes.NewStringValue(parts[1])
 
 	getRequest := r.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	if !data.MajorDimension.IsNull() {
+		getRequest.MajorDimension(data.MajorDimension.ValueString())
+	}
+
 	getRequest.Context(ctx)
 	getResponse, err := getRequest.Do()
 	if err != nil {
@@ -243,7 +264,7 @@ func (r *RangeResource) ImportState(ctx context.Context, req resource.ImportStat
 		return
 	}
 
-	data.Rows = ValuesToList(getResponse.Values)
+	data.Values = ValuesToList(getResponse.Values)
 	data.ValueInputOption = basetypes.NewStringValue("USER_ENTERED")
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
@@ -255,7 +276,6 @@ func (r *RangeResource) ImportState(ctx context.Context, req resource.ImportStat
 func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data RangeResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -263,6 +283,10 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	getRequest := r.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	if !data.MajorDimension.IsNull() {
+		getRequest.MajorDimension(data.MajorDimension.ValueString())
+	}
+
 	getRequest.Context(ctx)
 	getResponse, err := getRequest.Do()
 	if err != nil {
@@ -270,12 +294,9 @@ func (r *RangeResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	tflog.Info(ctx, fmt.Sprintf("Got %#v values when reading", getResponse.Values))
-	rowValues := data.RowsToValues()
-	tflog.Info(ctx, fmt.Sprintf("Got %#v data rows", rowValues))
+	rowValues := data.ToInterface()
 	extended := KeepDimensions(rowValues, getResponse.Values)
-	tflog.Info(ctx, fmt.Sprintf("Got %#v after extension", extended))
-	data.Rows = ValuesToList(extended)
+	data.Values = ValuesToList(extended)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }
@@ -287,26 +308,19 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	var stateData RangeResourceModel
 	var planData RangeResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &stateData)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Read Terraform plan data into the model
+
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &planData)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	updateRequest := r.client.Spreadsheets.Values.Update(stateData.SpreadsheetID.ValueString(), stateData.Range.ValueString(), &sheets.ValueRange{
-		Range:  planData.Range.ValueString(),
-		Values: planData.KeepDimensions(stateData.RowsToValues()),
-	})
-	updateRequest.Context(ctx)
-	updateRequest.ValueInputOption(planData.ValueInputOption.ValueString())
-
+	updateRequest := r.buildUpdateCall(ctx, &planData)
 	updateResponse, err := updateRequest.Do()
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to perform update request", err.Error())
@@ -314,7 +328,7 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 	}
 
 	stateData.SpreadsheetID = basetypes.NewStringValue(updateResponse.SpreadsheetId)
-	stateData.Rows = planData.Rows
+	stateData.Values = planData.Values
 	stateData.ValueInputOption = planData.ValueInputOption
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &stateData)...)
@@ -329,19 +343,35 @@ func (r *RangeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 func (r *RangeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data RangeResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	clearRequest := r.client.Spreadsheets.Values.Clear(data.SpreadsheetID.ValueString(), data.Range.ValueString(), &sheets.ClearValuesRequest{})
+	data.Values = ValuesToList(Clear(data.ToInterface()))
+
+	clearRequest := r.buildUpdateCall(ctx, &data)
 	clearRequest.Context(ctx)
 	_, err := clearRequest.Do()
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to read data,", err.Error())
+		resp.Diagnostics.AddError("Unable to update data,", err.Error())
 		return
 	}
 
+}
+
+func (r *RangeResource) buildUpdateCall(ctx context.Context, data *RangeResourceModel) *sheets.SpreadsheetsValuesUpdateCall {
+	updateBody := &sheets.ValueRange{
+		Range:  data.Range.ValueString(),
+		Values: data.ToInterface(),
+	}
+	if !data.MajorDimension.IsNull() {
+		updateBody.MajorDimension = data.MajorDimension.ValueString()
+	}
+
+	updateRequest := r.client.Spreadsheets.Values.Update(data.SpreadsheetID.ValueString(), data.Range.ValueString(), updateBody)
+	updateRequest.Context(ctx)
+	updateRequest.ValueInputOption(data.ValueInputOption.ValueString())
+	return updateRequest
 }

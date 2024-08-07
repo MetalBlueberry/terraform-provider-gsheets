@@ -1,6 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
 package provider
 
 import (
@@ -127,12 +124,12 @@ resource "gsheets_sheet" "test" {
 }
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
-	range = "'${gsheets_sheet.test.properties.title}'!A:C"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
 }
 	`, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "0"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "0"),
 				),
 			},
 			{
@@ -169,6 +166,205 @@ resource "gsheets_range" "test_range" {
 					})
 					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
 						updateRange := r.PathValue("range")
+
+						res := sheets.ValueRange{
+							Range:  updateRange,
+							Values: storedValues,
+						}
+						err := json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+				},
+				Config: fmt.Sprintf(`
+provider "gsheets" {
+	endpoint = "%s"
+}
+
+resource "gsheets_sheet" "test" {
+	spreadsheet_id = "test-spreadsheet-id"
+	properties = {
+		title = "test title"
+	}
+}
+
+resource "gsheets_range" "test_range" {
+	spreadsheet_id = "test-spreadsheet-id"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
+	values = [
+				["a","b","c"],
+				[1,2,3],
+	]
+}
+	`, server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
+				),
+			},
+			{
+				PreConfig: func() {
+					mux = http.NewServeMux()
+					var storedValues [][]interface{}
+
+					// I know this is a dirty hack, but I don't want to import external libraries now.
+					updateCalls := 0
+					mux.HandleFunc("PUT /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						updateCalls++
+
+						spreadsheetID := r.PathValue("spreadsheetId")
+						updateRange := r.PathValue("range")
+						defer r.Body.Close()
+						requestBody := &sheets.ValueRange{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						if updateCalls > 1 {
+							if requestBody.MajorDimension != "COLUMNS" {
+								t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
+							}
+						}
+
+						storedValues = requestBody.Values
+
+						res := sheets.UpdateValuesResponse{
+							SpreadsheetId: spreadsheetID,
+							UpdatedData: &sheets.ValueRange{
+								Range:  updateRange,
+								Values: requestBody.Values,
+							},
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					getCallCount := 0
+					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						getCallCount++
+						updateRange := r.PathValue("range")
+
+						if getCallCount == 2 {
+							if majorDimension := r.URL.Query().Get("majorDimension"); majorDimension != "COLUMNS" {
+								t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", majorDimension)
+							}
+						}
+
+						res := sheets.ValueRange{
+							Range:  updateRange,
+							Values: storedValues,
+						}
+						err := json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					mux.HandleFunc("POST /v4/spreadsheets/{spreadsheetId}/values/{rangeclear}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := strings.Split(r.PathValue("rangeclear"), ":")[0]
+						spreadsheetID := r.PathValue("spreadsheetId")
+						defer r.Body.Close()
+
+						requestBody := &sheets.ClearValuesRequest{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+
+						res := sheets.ClearValuesResponse{
+							ClearedRange:  updateRange,
+							SpreadsheetId: spreadsheetID,
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+				},
+				Config: fmt.Sprintf(`
+provider "gsheets" {
+	endpoint = "%s"
+}
+
+resource "gsheets_sheet" "test" {
+	spreadsheet_id = "test-spreadsheet-id"
+	properties = {
+		title = "test title"
+	}
+}
+
+resource "gsheets_range" "test_range" {
+	spreadsheet_id = "test-spreadsheet-id"
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
+	major_dimension = "COLUMNS"
+	values = [
+				["a","1"],
+				["b","2"],
+				["c","3"],
+	]
+}
+	`, server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "3"),
+				),
+			},
+			{
+				PreConfig: func() {
+					mux = http.NewServeMux()
+					var storedValues [][]interface{}
+					mux.HandleFunc("PUT /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						spreadsheetID := r.PathValue("spreadsheetId")
+						updateRange := r.PathValue("range")
+						defer r.Body.Close()
+						requestBody := &sheets.ValueRange{}
+						err := json.NewDecoder(r.Body).Decode(requestBody)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						if requestBody.MajorDimension != "COLUMNS" {
+							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", requestBody.MajorDimension)
+						}
+
+						storedValues = requestBody.Values
+
+						res := sheets.UpdateValuesResponse{
+							SpreadsheetId: spreadsheetID,
+							UpdatedData: &sheets.ValueRange{
+								Range:  updateRange,
+								Values: requestBody.Values,
+							},
+						}
+						err = json.NewEncoder(w).Encode(res)
+						if err != nil {
+							log.Println(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							return
+						}
+						w.WriteHeader(200)
+					})
+					mux.HandleFunc("GET /v4/spreadsheets/{spreadsheetId}/values/{range}", func(w http.ResponseWriter, r *http.Request) {
+						updateRange := r.PathValue("range")
+
+						if majorDimension := r.URL.Query().Get("majorDimension"); majorDimension != "COLUMNS" {
+							t.Errorf("Expected major dimension 'COLUMNS' but got '%s'", majorDimension)
+						}
 
 						res := sheets.ValueRange{
 							Range:  updateRange,
@@ -247,16 +443,17 @@ resource "gsheets_sheet" "test" {
 
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "test-spreadsheet-id"
-	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
-				["a","b","c"],
-				[1,2,3],
+	range = provider::gsheets::format_range(gsheets_sheet.test,"A:C")
+	major_dimension = "COLUMNS"
+	values = [
+				["a","1"],
+				["b","2"],
 	]
 }
 	`, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", "'test title'!A:C"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
 				),
 			},
 		},
@@ -312,7 +509,7 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "0"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "0"),
 				),
 			},
 			{
@@ -340,7 +537,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 	["a","b","c"],
 	[1,2,3],
 	]
@@ -348,9 +545,9 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.1.#", "3"),
 				),
 			},
 			{
@@ -378,7 +575,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 	["a","b","c"],
 	[1,2,""],
 	["x",2,"z"],
@@ -388,11 +585,11 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "4"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.2.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.3.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "4"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.1.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.2.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.3.#", "3"),
 				),
 			},
 			{
@@ -420,15 +617,15 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!A:C"
-	rows = [
+	values = [
 	["",""],
 	]
 }
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!A:C", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "1"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "1"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "2"),
 				),
 			},
 			{
@@ -456,7 +653,7 @@ resource "gsheets_sheet" "test" {
 resource "gsheets_range" "test_range" {
 	spreadsheet_id = "1gk-q5dVEvkkdxno0FPwxAZo8_KsCDicW_MAs0KQAF8w"
 	range = "'${gsheets_sheet.test.properties.title}'!D:F"
-	rows = [
+	values = [
 	["a","b","c"],
 	[1,2,3],
 	]
@@ -464,9 +661,9 @@ resource "gsheets_range" "test_range" {
 	`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("gsheets_range.test_range", "range", fmt.Sprintf("'%s'!D:F", expectedTitle)),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.#", "2"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.0.#", "3"),
-					resource.TestCheckResourceAttr("gsheets_range.test_range", "rows.1.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.#", "2"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.0.#", "3"),
+					resource.TestCheckResourceAttr("gsheets_range.test_range", "values.1.#", "3"),
 				),
 			},
 		},

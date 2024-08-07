@@ -1,68 +1,77 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
 package provider
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"google.golang.org/api/sheets/v4"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ datasource.DataSource = &RowsDataSource{}
+var _ datasource.DataSource = &RangeDataSource{}
 
-func NewRowsDataSource() datasource.DataSource {
-	return &RowsDataSource{}
+func NewRangeDataSource() datasource.DataSource {
+	return &RangeDataSource{}
 }
 
-// RowsDataSource defines the data source implementation.
-type RowsDataSource struct {
+// RangeDataSource defines the data source implementation.
+type RangeDataSource struct {
 	client *sheets.Service
 }
 
-// RowsDataSourceModel describes the data source data model.
-type RowsDataSourceModel struct {
-	SheetID types.String `tfsdk:"sheet_id"`
-	Range   types.String `tfsdk:"range"`
-	Rows    types.List   `tfsdk:"rows"`
+// RangeDataSourceModel describes the data source data model.
+type RangeDataSourceModel struct {
+	SpreadsheetID  types.String `tfsdk:"spreadsheet_id"`
+	Range          types.String `tfsdk:"range"`
+	Values         types.List   `tfsdk:"values"`
+	MajorDimension types.String `tfsdk:"major_dimension"`
 }
 
-func (d *RowsDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_rows"
+func (d *RangeDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_range"
 }
 
-func (d *RowsDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *RangeDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Rows data source",
+		MarkdownDescription: `Allows to fetch data from a spreadsheet by providing the spreadsheet_id and the range.
+
+To fetch data from a specific sheet, you must use the range syntax to point to a specific sheet.`,
 
 		Attributes: map[string]schema.Attribute{
-			"sheet_id": schema.StringAttribute{
-				MarkdownDescription: "The file to get the rows from",
+			"spreadsheet_id": schema.StringAttribute{
+				MarkdownDescription: "The unique ID for the spreadsheet. It can be obtained from the URL.",
 				Required:            true,
 			},
 			"range": schema.StringAttribute{
-				MarkdownDescription: "The range to read",
+				MarkdownDescription: "The range to read. It follows standard range notation documented in google sheets.",
 				Required:            true,
 			},
-			"rows": schema.ListAttribute{
+			"values": schema.ListAttribute{
 				ElementType: types.ListType{
 					ElemType: types.StringType,
 				},
-				MarkdownDescription: "The rows",
+				MarkdownDescription: "The data that will be read",
 				Computed:            true,
+			},
+			"major_dimension": schema.StringAttribute{
+				MarkdownDescription: "major dimension for the values",
+				Optional:            true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("ROWS", "COLUMNS"),
+				},
 			},
 		},
 	}
 }
 
-func (d *RowsDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *RangeDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -82,8 +91,8 @@ func (d *RowsDataSource) Configure(ctx context.Context, req datasource.Configure
 	d.client = client
 }
 
-func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var data RowsDataSourceModel
+func (d *RangeDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data RangeDataSourceModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
@@ -91,7 +100,11 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	request := d.client.Spreadsheets.Values.Get(data.SheetID.ValueString(), data.Range.ValueString())
+	request := d.client.Spreadsheets.Values.Get(data.SpreadsheetID.ValueString(), data.Range.ValueString())
+	if !data.MajorDimension.IsNull() {
+		request.MajorDimension(data.MajorDimension.ValueString())
+	}
+
 	values, err := request.Do()
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -108,7 +121,7 @@ func (d *RowsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	data.Rows = ValuesToList(values.Values)
+	data.Values = ValuesToList(values.Values)
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
